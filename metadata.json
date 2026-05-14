@@ -1,0 +1,6 @@
+{
+  "name": "NeuroCycle",
+  "description": "AI-powered waste classification assistant with NeuroMap, Scan History, and Reward System. Gamify your eco-friendly habits and earn NeuroPoints!",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["image-recognition", "google-maps"]
+}

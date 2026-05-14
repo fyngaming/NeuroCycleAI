@@ -1,0 +1,17 @@
+{
+  "name": "NeuroCycle",
+  "short_name": "NeuroCycle",
+  "description": "AI-Powered Waste Management App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ecfdf5",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3299/3299935.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
