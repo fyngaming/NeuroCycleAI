@@ -1486,6 +1486,10 @@ export default function App() {
                     {article.icon === 'Leaf' && <Leaf className="text-green-500" />}
                     {article.icon === 'TrendingDown' && <TrendingDown className="text-amber-500" />}
                     {article.icon === 'Recycle' && <Recycle className="text-emerald-500" />}
+                    {article.icon === 'Sprout' && <Sprout className="text-indigo-500" />}
+                    {article.icon === 'ShoppingBag' && <ShoppingBag className="text-rose-500" />}
+                    {article.icon === 'AlertTriangle' && <AlertTriangle className="text-red-500" />}
+                    {article.icon === 'Trees' && <Trees className="text-emerald-500" />}
                   </div>
                   <div className="flex-1">
                     <h4 className="font-bold text-stone-800 text-sm mb-0.5">{article.title}</h4>
@@ -1562,6 +1566,10 @@ export default function App() {
                   {selectedArticle.icon === 'Leaf' && <Leaf size={32} className="text-green-500" />}
                   {selectedArticle.icon === 'TrendingDown' && <TrendingDown size={32} className="text-amber-500" />}
                   {selectedArticle.icon === 'Recycle' && <Recycle size={32} className="text-emerald-500" />}
+                  {selectedArticle.icon === 'Sprout' && <Sprout size={32} className="text-indigo-500" />}
+                  {selectedArticle.icon === 'ShoppingBag' && <ShoppingBag size={32} className="text-rose-500" />}
+                  {selectedArticle.icon === 'AlertTriangle' && <AlertTriangle size={32} className="text-red-500" />}
+                  {selectedArticle.icon === 'Trees' && <Trees size={32} className="text-emerald-500" />}
                 </div>
                 <div>
                   <h1 className="text-2xl font-display font-bold text-stone-800 leading-tight">{selectedArticle.title}</h1>
