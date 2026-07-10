@@ -4715,6 +4715,11 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
 
+    // Safety timeout: jika isInitializing masih true setelah 8 detik, paksa false
+    const safetyTimeout = setTimeout(() => {
+      setIsInitializing(false);
+    }, 8000);
+
     // Handle redirect result from signInWithRedirect
     getRedirectResult(auth).catch((error: any) => {
       if (error?.code !== 'auth/null-user') {
@@ -4812,6 +4817,7 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
