@@ -21,8 +21,8 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
             </div>
           </div>
         </div>
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="p-3 bg-white rounded-2xl text-stone-400 shadow-sm border border-stone-100 active:scale-95 transition-transform"
         >
           <X size={20} />
@@ -31,14 +31,14 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
 
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         <div className="relative mb-10">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="w-40 h-40 bg-emerald-100 rounded-[56px] flex items-center justify-center text-emerald-600 relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-transparent" />
             <motion.div
-              animate={{ 
+              animate={{
                 scale: [1, 1.1, 1],
                 rotate: [0, 5, -5, 0]
               }}
@@ -47,7 +47,7 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
               <MapPin size={80} />
             </motion.div>
           </motion.div>
-          
+
           {/* Decorative Rings */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 border-2 border-emerald-100 rounded-full animate-ping opacity-50" style={{ animationDuration: '3s' }} />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border border-stone-100 rounded-full animate-ping" style={{ animationDuration: '4s' }} />
@@ -64,7 +64,7 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
           </p>
 
           <div className="w-full space-y-4 px-4">
-            <button 
+            <button
               onClick={() => window.open('https://www.google.com/maps/search/bank+sampah+terdekat/', '_blank')}
               className="w-full py-5 bg-stone-900 text-white rounded-3xl font-bold text-lg shadow-xl shadow-stone-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
             >
@@ -72,7 +72,14 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
               Buka di Google Maps
               <ArrowUpRight size={18} className="opacity-50" />
             </button>
-            
+
+            <button
+              onClick={onClose}
+              className="w-full py-4 text-stone-400 font-bold text-sm uppercase tracking-widest hover:text-stone-600 transition-colors"
+            >
+              Batal & Kembali
+            </button>
+
             <p className="text-[9px] font-black text-stone-300 uppercase tracking-[0.3em]">
               Sistem akan mencari di area sekitarmu
             </p>
@@ -81,7 +88,7 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
       </div>
 
       {/* Info Card */}
-      <motion.div 
+      <motion.div
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4 }}
@@ -102,5 +109,3 @@ export const MapContainer = ({ onClose }: MapContainerProps) => {
     </div>
   );
 };
-
-

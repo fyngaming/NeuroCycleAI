@@ -1,0 +1,44 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg=VITE_GEMINI_API_KEY=AIzaSyD1xMX86JrSxJtKdTCIw67jHZGHZeFm6ws'
+      - '--build-arg=VITE_FIREBASE_API_KEY=AIzaSyChzCjyMdqjEqSja1iHLV3EcEJjIOVe8f0'
+      - '--build-arg=VITE_FIREBASE_AUTH_DOMAIN=neurocycle-f7871.firebaseapp.com'
+      - '--build-arg=VITE_FIREBASE_PROJECT_ID=neurocycle-f7871'
+      - '--build-arg=VITE_FIREBASE_STORAGE_BUCKET=neurocycle-f7871.firebasestorage.app'
+      - '--build-arg=VITE_FIREBASE_MESSAGING_SENDER_ID=134090712034'
+      - '--build-arg=VITE_FIREBASE_APP_ID=1:134090712034:web:181ec080f5b66fe61acfbb'
+      - '--build-arg=VITE_ADMIN_USER=adminNeuroCycle'
+      - '--build-arg=VITE_ADMIN_PASS=DaurUlangSampahmu'
+      - '--build-arg=VITE_APP_URL=https://neurocycle-v2-134090712034.asia-southeast1.run.app'
+      - '--build-arg=VITE_IMGBB_API_KEY=dd472a03e10e1cb76a2905c90b497317'
+      - '-t'
+      - 'gcr.io/neurocycle-495808/neurocycle-v2:latest'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/neurocycle-495808/neurocycle-v2:latest'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'neurocycle-v2'
+      - '--image'
+      - 'gcr.io/neurocycle-495808/neurocycle-v2:latest'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '512Mi'
+
+images:
+  - 'gcr.io/neurocycle-495808/neurocycle-v2:latest'

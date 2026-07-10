@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:*", "https://localhost:*", "http://192.168.*", "https://neurocycle.vercel.app"],
+    "method": ["GET", "HEAD", "DELETE", "POST", "PUT", "OPTIONS"],
+    "responseHeader": ["Content-Type", "x-goog-meta-*"],
+    "maxAgeSeconds": 3600
+  }
+]
