@@ -62,8 +62,7 @@ import { auth, db, googleProvider } from './lib/firebase';
 import { normalizePhotoUrl } from './lib/photoUrl';
 import {
   onAuthStateChanged,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut,
   signInAnonymously,
   User as FirebaseUser,
@@ -4691,11 +4690,9 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     try {
-      // Tandai bahwa redirect Google sedang berlangsung
-      sessionStorage.setItem('googleLoginPending', 'true');
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
+      setState('welcome');
     } catch (error: any) {
-      sessionStorage.removeItem('googleLoginPending');
       console.error("Login failed:", error?.code, error?.message);
       alert("Gagal login dengan Google. Error: " + (error?.code || error?.message || 'Unknown'));
     }
@@ -4718,25 +4715,8 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
 
-    // Safety timeout: jika isInitializing masih true setelah 8 detik, paksa false
-    const safetyTimeout = setTimeout(() => {
-      setIsInitializing(false);
-    }, 8000);
-
-    // Handle redirect result dari signInWithRedirect
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          // Redirect berhasil, hapus flag
-          sessionStorage.removeItem('googleLoginPending');
-        }
-      })
-      .catch((error: any) => {
-        sessionStorage.removeItem('googleLoginPending');
-        if (error?.code !== 'auth/null-user') {
-          console.error("Redirect result error:", error?.code, error?.message);
-        }
-      });
+  useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -4822,18 +4802,12 @@ export default function App() {
 
       } else {
         if (unsubscribeSnapshot) unsubscribeSnapshot();
-        // Jika Google redirect sedang berlangsung, jangan balik ke login
-        const isGoogleLoginPending = sessionStorage.getItem('googleLoginPending') === 'true';
-        if (!isGoogleLoginPending) {
-          setState('login');
-          setIsInitializing(false);
-        }
-        // Jika pending, biarkan loading tetap tampil sampai user berhasil login
+        setState('login');
+        setIsInitializing(false);
       }
     });
 
     return () => {
-      clearTimeout(safetyTimeout);
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
