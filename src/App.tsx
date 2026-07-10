@@ -4691,8 +4691,11 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     try {
+      // Tandai bahwa redirect Google sedang berlangsung
+      sessionStorage.setItem('googleLoginPending', 'true');
       await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
+      sessionStorage.removeItem('googleLoginPending');
       console.error("Login failed:", error?.code, error?.message);
       alert("Gagal login dengan Google. Error: " + (error?.code || error?.message || 'Unknown'));
     }
@@ -4720,12 +4723,20 @@ export default function App() {
       setIsInitializing(false);
     }, 8000);
 
-    // Handle redirect result from signInWithRedirect
-    getRedirectResult(auth).catch((error: any) => {
-      if (error?.code !== 'auth/null-user') {
-        console.error("Redirect result error:", error?.code, error?.message);
-      }
-    });
+    // Handle redirect result dari signInWithRedirect
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          // Redirect berhasil, hapus flag
+          sessionStorage.removeItem('googleLoginPending');
+        }
+      })
+      .catch((error: any) => {
+        sessionStorage.removeItem('googleLoginPending');
+        if (error?.code !== 'auth/null-user') {
+          console.error("Redirect result error:", error?.code, error?.message);
+        }
+      });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -4811,8 +4822,13 @@ export default function App() {
 
       } else {
         if (unsubscribeSnapshot) unsubscribeSnapshot();
-        setState('login');
-        setIsInitializing(false);
+        // Jika Google redirect sedang berlangsung, jangan balik ke login
+        const isGoogleLoginPending = sessionStorage.getItem('googleLoginPending') === 'true';
+        if (!isGoogleLoginPending) {
+          setState('login');
+          setIsInitializing(false);
+        }
+        // Jika pending, biarkan loading tetap tampil sampai user berhasil login
       }
     });
 
