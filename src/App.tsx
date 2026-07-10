@@ -62,7 +62,8 @@ import { auth, db, googleProvider } from './lib/firebase';
 import { normalizePhotoUrl } from './lib/photoUrl';
 import {
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   signInAnonymously,
   User as FirebaseUser,
@@ -4690,11 +4691,10 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      setState('welcome');
-    } catch (error) {
-      console.error("Login failed:", error);
-      alert("Gagal login dengan Google. Silakan coba lagi.");
+      await signInWithRedirect(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Login failed:", error?.code, error?.message);
+      alert("Gagal login dengan Google. Error: " + (error?.code || error?.message || 'Unknown'));
     }
   };
 
@@ -4714,6 +4714,13 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
+
+    // Handle redirect result from signInWithRedirect
+    getRedirectResult(auth).catch((error: any) => {
+      if (error?.code !== 'auth/null-user') {
+        console.error("Redirect result error:", error?.code, error?.message);
+      }
+    });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
