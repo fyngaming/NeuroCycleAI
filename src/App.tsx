@@ -4715,9 +4715,6 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
 
-  useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
 
