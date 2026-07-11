@@ -4797,6 +4797,7 @@ export default function App() {
           setIsInitializing(false);
         }, (error) => {
           console.error("Firestore snapshot error:", error);
+          alert("Gagal memuat data pengguna (Firestore Error): " + error.message);
           setIsInitializing(false);
         });
 
