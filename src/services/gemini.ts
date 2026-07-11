@@ -560,17 +560,55 @@ const COCO_CLASS_TO_WASTE: Record<string, { templateKey: keyof typeof TEMPLATES;
   'clock': { templateKey: 'mixed', label: 'Jam' },
   'vase': { templateKey: 'glass', label: 'Vas' },
   'teddy bear': { templateKey: 'mixed', label: 'Boneka' },
+  'person': { templateKey: 'organic', label: 'Sisa Organik Manusia' },
+  'bicycle': { templateKey: 'metal', label: 'Sepeda' },
+  'motorcycle': { templateKey: 'metal', label: 'Motor' },
+  'car': { templateKey: 'metal', label: 'Mobil' },
+  'bus': { templateKey: 'metal', label: 'Bus' },
+  'train': { templateKey: 'metal', label: 'Kereta' },
+  'truck': { templateKey: 'metal', label: 'Truk' },
+  'boat': { templateKey: 'mixed', label: 'Perahu' },
+  'traffic light': { templateKey: 'b3', label: 'Lampu Lalu Lintas' },
+  'fire hydrant': { templateKey: 'metal', label: 'Hydran' },
+  'stop sign': { templateKey: 'metal', label: 'Rambu Stop' },
+  'parking meter': { templateKey: 'metal', label: 'Parkir Meter' },
+  'bench': { templateKey: 'mixed', label: 'Bangku' },
+  'bird': { templateKey: 'organic', label: 'Burung' },
+  'cat': { templateKey: 'organic', label: 'Kucing' },
+  'dog': { templateKey: 'organic', label: 'Anjing' },
+  'horse': { templateKey: 'organic', label: 'Kuda' },
+  'sheep': { templateKey: 'organic', label: 'Domba' },
+  'cow': { templateKey: 'organic', label: 'Sapi' },
+  'elephant': { templateKey: 'organic', label: 'Gajah' },
+  'bear': { templateKey: 'organic', label: 'Beruang' },
+  'zebra': { templateKey: 'organic', label: 'Zebra' },
+  'giraffe': { templateKey: 'organic', label: 'Jerapah' },
+  'hat': { templateKey: 'plastic', label: 'Topi' },
+  'shoe': { templateKey: 'plastic', label: 'Sepatu' },
+  'eye glasses': { templateKey: 'b3', label: 'Kacamata' },
+  'bag': { templateKey: 'plastic', label: 'Kantong Plastik' },
+  'tie': { templateKey: 'plastic', label: 'Dasi' },
+  'suitcase': { templateKey: 'plastic', label: 'Koper' },
+  'frisbee': { templateKey: 'plastic', label: 'Frisbee' },
+  'skis': { templateKey: 'plastic', label: 'Ski' },
+  'snowboard': { templateKey: 'plastic', label: 'Snowboard' },
+  'sports ball': { templateKey: 'plastic', label: 'Bola' },
+  'kite': { templateKey: 'paper', label: 'Layang-layang' },
+  'baseball bat': { templateKey: 'metal', label: 'Tongkat Baseball' },
+  'skateboard': { templateKey: 'plastic', label: 'Skateboard' },
+  'surfboard': { templateKey: 'plastic', label: 'Papan Selancar' },
+  'tennis racket': { templateKey: 'mixed', label: 'Raket Tennis' },
 };
 
 function classifyWasteType(label: string): keyof typeof TEMPLATES {
   const text = label.toLowerCase();
 
-  if (/(battery|baterai|charger|cable|wire|plug|electronic|phone|mouse|keyboard|medicine|pill|chemical|spray|paint|cleaner|cosmetic|tube|light[\s-]?bulb|bulb|thermometer|toner|ink|pesticide)/.test(text)) return "b3";
-  if (/(banana|apple|orange|fruit|vegetable|leaf|plant|food|cake|bread|rice|eggshell|peel|flower|grass|corn|potato|avocado|strawberry|pineapple|lettuce|cucumber|carrot|mushroom)/.test(text)) return "organic";
-  if (/(paper[\s-]?towel|toilet[\s-]?tissue|notebook|envelope|cardboard|box|newspaper|book|receipt|paper[\s-]?bag|paper|carton|tissue|napkin|menu|poster)/.test(text)) return "paper";
-  if (/\b(metal|can|aluminum|tin[\s-]?foil|foil|spoon|fork|knife|key|scissors|nail|screw|chain|padlock|wok|\bpot\b|frying[\s-]?pan|saucepan|staple|wire)\b/i.test(text) && !/(cable|charger|plug|electronic)/.test(text)) return "metal";
-  if (/(wine[\s-]?bottle|beer[\s-]?bottle|glass[\s-]?bottle|vase|jar|wineglass|cocktail[\s-]?shaker|cup|glass)/.test(text)) return "glass";
-  if (/(pop[\s-]?bottle|plastic[\s-]?bag|bottle|cup|container|package|wrapper|straw|bucket|basket|toy|chair|table|comb|ladle|tray|pitcher|jug|backpack|handbag|purse|sock|sandal|slipper|remote[\s-]?control)/.test(text)) return "plastic";
+  if (/(battery|baterai|charger|cable|wire|plug|electronic|phone|mouse|keyboard|medicine|pill|chemical|spray|paint|cleaner|cosmetic|tube|light[\s-]?bulb|bulb|thermometer|toner|ink|pesticide|laptop|tv|remote|microwave|oven|toaster|refrigerator|hair[\s-]?dryer|toothbrush)/.test(text)) return "b3";
+  if (/(banana|apple|orange|fruit|vegetable|leaf|plant|food|cake|bread|rice|eggshell|peel|flower|grass|corn|potato|avocado|strawberry|pineapple|lettuce|cucumber|carrot|mushroom|pizza|sandwich|hotdog|donut|sushi|ramen|noodle|pasta|steak|chicken|fish|shrimp|crab|lobster|meat|egg|cheese|yogurt|coffee|tea|juice|soda|milk|water|sugar|salt|pepper|oil|sauce|soup|salad|ice[\s-]?cream|cookie|candy|chocolate)/.test(text)) return "organic";
+  if (/(paper[\s-]?towel|toilet[\s-]?tissue|notebook|envelope|cardboard|box|newspaper|book|receipt|paper[\s-]?bag|paper|carton|tissue|napkin|menu|poster|magazine|catalog|folder|envelope|letter|package)/.test(text)) return "paper";
+  if (/\b(metal|can|aluminum|tin[\s-]?foil|foil|spoon|fork|knife|key|scissors|nail|screw|chain|padlock|wok|\bpot\b|frying[\s-]?pan|saucepan|staple|wire|bottle[\s-]?cap|ring|coin|pin|clamp|bolt|nut|washer|gear|cog)\b/i.test(text) && !/(cable|charger|plug|electronic)/.test(text)) return "metal";
+  if (/(wine[\s-]?bottle|beer[\s-]?bottle|glass[\s-]?bottle|vase|jar|wineglass|cocktail[\s-]?shaker|cup|glass|window|mirror|lens|aquarium|fish[\s-]?tank)/.test(text)) return "glass";
+  if (/(pop[\s-]?bottle|plastic[\s-]?bag|bottle|cup|container|package|wrapper|straw|bucket|basket|toy|chair|table|comb|ladle|tray|pitcher|jug|backpack|handbag|purse|sock|sandal|slipper|remote[\s-]?control|pen|ruler|eraser|folder|balloon|kite|frisbee|skateboard|surfboard|ski|snowboard|racket|guitar|drum|violin|flute|trumpet)/.test(text)) return "plastic";
 
   return "mixed";
 }
