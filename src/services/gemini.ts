@@ -696,22 +696,32 @@ async function analyzeWasteWithCoco(base64Image: string): Promise<{ name: string
 function heuristicWasteType(color: { r: number; g: number; b: number; brightness: number; saturation: number }): keyof typeof TEMPLATES {
   const { r, g, b, brightness, saturation } = color;
 
-  // Bright Green = Organic (vegetables/fruits)
-  if (g > r * 1.2 && g > b * 1.1 && saturation > 0.3 && brightness > 0.4) return "organic";
+  // Organic: green/brown/red/yellow tones (fruits, vegetables, food)
+  if (g > r * 1.1 && g > b * 1.05 && saturation > 0.25 && brightness > 0.35) return "organic";
+  if (r > 120 && g > 80 && b < 80 && saturation > 0.3 && brightness > 0.3 && brightness < 0.8) return "organic";
+  if (r > 150 && g > 100 && b < 100 && saturation > 0.2 && brightness > 0.4) return "organic";
   
-  // Dark/Near Black = Mixed (ambiguous objects)  
-  if (brightness < 0.25) return "mixed";
+  // Plastic: transparent/white/light colored (bottles, containers, wrappers)
+  if (saturation < 0.18 && brightness > 0.55) return "plastic";
+  if (saturation < 0.22 && brightness > 0.6 && r > 200 && g > 200 && b > 200) return "plastic";
+  if (r > 180 && g < 120 && b < 120 && saturation > 0.25 && brightness > 0.4) return "plastic";
+  if (r < 120 && g > 150 && b > 150 && saturation > 0.2 && brightness > 0.5) return "plastic";
   
-  // Blue dominant = Glass
-  if (b > r * 1.3 && b > g * 1.1 && saturation > 0.15) return "glass";
+  // Paper: beige/white/tan tones (cardboard, paper, napkins)
+  if (saturation < 0.15 && brightness > 0.7 && r > 200 && g > 190 && b > 170) return "paper";
+  if (r > 180 && g > 160 && b < 140 && saturation < 0.2 && brightness > 0.5) return "paper";
   
-  // Yellow/Orange = Paper (newspapers, cardboard)
-  if (r > 170 && g > 130 && b < 100 && saturation > 0.25) return "paper";
+  // Glass: transparent/cyan/blue transparent
+  if (b > r * 1.15 && b > g && saturation > 0.1 && brightness > 0.5) return "glass";
+  if (saturation < 0.12 && brightness > 0.65 && b > r && b > g) return "glass";
   
-  // Gray/Silver = Metal
-  if (saturation < 0.1 && brightness > 0.3 && brightness < 0.7) return "metal";
+  // Metal: true metallic gray/silver with moderate brightness
+  if (saturation < 0.08 && brightness > 0.35 && brightness < 0.65 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20) return "metal";
   
-  // High brightness with color = Mixed
+  // Dark objects = mixed
+  if (brightness < 0.2) return "mixed";
+  
+  // Default: mixed with lower confidence
   return "mixed";
 }
 
@@ -805,10 +815,15 @@ function parseWasteAnalysis(text: string): WasteAnalysis {
 
 async function analyzeWasteWithGemini(base64Image: string): Promise<WasteAnalysis> {
   const prompt = `You are a professional waste analyzer. Analyze this waste photo and identify the visible object accurately.
-  IMPORTANT: Food waste MUST be classified as "Organik".
-  Classify it strictly into ONE of these categories: Organik, Anorganik, B3, Kertas, Plastik, or Logam.
+  CLASSIFICATION RULES (STRICT):
+  - Plastik: bottles, containers, wrappers, bags, cups, toys, shoes, hats, electronics casing. Look for transparent, white, or colored plastic surfaces.
+  - Organik: food waste, fruits, vegetables, meat, fish, bread, cake, coffee, tea, leaves, flowers, grass. Look for natural organic colors.
+  - Kertas: cardboard, paper, books, envelopes, napkins, tissues, boxes. Look for brown/beige paper texture.
+  - Logam: cans, foil, spoons, forks, knives, keys, scissors, nails, wires, bottle caps, coins. Look for metallic silver/gray shiny surfaces.
+  - Kaca: glass bottles, cups, vases, jars, windows, mirrors. Look for transparent blue/green glass or reflections.
+  - B3: batteries, chargers, cables, electronics, phones, keyboards, medicine, chemicals, sprays, paint, light bulbs.
+  IMPORTANT: Do NOT classify plastic bottles or food containers as Logam or Campuran. Do NOT classify food waste as Campuran.
   Use the actual object in the photo to create HIGHLY ACCURATE composition percentages based on the visual materials. Provide a realistic disposal guide, creative upcycling ideas, tips, environmental impact, and impact stats.
-  If the object is unclear, infer the most likely material from visual cues instead of saying it is undetected.
   You must return the result as a JSON object with this exact structure:
   {
     "name": "string (Specific name of the waste)",
