@@ -1051,23 +1051,55 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
     const weights: Record<string, number> = {};
     const labelNames: Record<string, string> = {};
 
+    // Strict waste-only COCO classes - ignore animals, insects, electronics, etc.
+    const WASTE_ONLY_CLASSES = new Set([
+      'bottle', 'wine glass', 'cup', 'bowl', 'fork', 'knife', 'spoon', 'plate',
+      'banana', 'apple', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
+      'sandwich', 'potted plant', 'clock', 'vase', 'teddy bear', 'hair drier', 'toothbrush',
+      'scissors', 'book', 'remote', 'keyboard', 'mouse', 'cell phone', 'microwave', 'oven',
+      'toaster', 'refrigerator', 'tv', 'laptop', 'backpack', 'umbrella', 'handbag', 'suitcase',
+      'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'skateboard',
+      'surfboard', 'tennis racket', 'chair', 'couch', 'bed', 'dining table', 'toilet',
+      'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+    ]);
+
     // COCO contributions - highest priority for object detection
     for (const p of cocoPreds || []) {
       const cocoClass = (p.class || '').toLowerCase();
+      
+      // Only accept waste-related COCO classes
+      if (!WASTE_ONLY_CLASSES.has(cocoClass)) {
+        continue;
+      }
+      
       const mapped = COCO_CLASS_TO_WASTE[cocoClass];
       if (mapped) {
         const type = mapped.templateKey;
-        const w = (Number(p.score) || 0) * 4.5; // dominant weight
+        const w = (Number(p.score) || 0) * 5.0; // dominant weight for waste objects
         weights[type] = (weights[type] || 0) + w;
         labelNames[type] = mapped.label || labelNames[type] || formatLabel(cocoClass);
       }
     }
 
-    // Mobilenet contributions - minor weight to avoid confusion
+    // Mobilenet contributions - minor weight, only for waste-related predictions
     for (const p of mnPreds || []) {
       const label = (p.className || '').toLowerCase();
+      
+      // Skip non-waste MobileNet predictions
+      const nonWasteKeywords = ['person', 'dog', 'cat', 'bird', 'horse', 'cow', 'sheep', 
+                                'elephant', 'bear', 'zebra', 'giraffe', 'monkey', 'rabbit',
+                                'car', 'bus', 'truck', 'bicycle', 'motorcycle', 'train', 'boat',
+                                'airplane', 'helicopter', 'ship', 'tank', 'tractor', 'ambulance',
+                                'fire engine', 'school bus', 'beach wagon', 'minivan', 'taxi',
+                                'sports car', 'convertible', 'jeep', 'limousine', 'pickup',
+                                'trailer truck', 'moving van', 'bicycle-built-for-two', 'tricycle',
+                                'mountain bike', 'motor scooter', 'moped', 'unicycle'];
+      
+      const isNonWaste = nonWasteKeywords.some(keyword => label.includes(keyword));
+      if (isNonWaste) continue;
+      
       const type = classifyWasteType(label);
-      const w = (Number(p.probability) || 0) * 0.3;
+      const w = (Number(p.probability) || 0) * 0.4;
       weights[type] = (weights[type] || 0) + w;
       labelNames[type] = formatLabel(label);
     }
