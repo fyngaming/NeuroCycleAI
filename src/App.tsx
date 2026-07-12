@@ -80,6 +80,7 @@ import {
 } from 'firebase/firestore';
 import { analyzeWaste, WasteAnalysis, genAI } from './services/gemini';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { logError } from './lib/errorLogger';
 import { EDUCATIONAL_ARTICLES } from './constants';
 import { MapContainer } from './components/MapContainer';
 import { DailyMissions } from './components/DailyMissions';
@@ -4830,8 +4831,20 @@ export default function App() {
       try {
         const userRef = doc(db, 'users', authUser.uid);
         await setDoc(userRef, persistedData, { merge: true });
-      } catch (error) {
+      } catch (error: any) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         console.error("Error saving data to Firestore:", error);
+        await logError({
+          severity: 'ERROR',
+          type: 'firebase_user_data_save_failed',
+          message: `Failed to save user data: ${errorMsg}`,
+          context: 'user_data_sync',
+          userId: authUser.uid,
+          userEmail: authUser.email || undefined,
+          functionName: 'saveUserData',
+          stack: error instanceof Error ? error.stack : undefined,
+          metadata: { dataSize: JSON.stringify(persistedData).length }
+        });
       }
     }
     return persistedData;
@@ -4892,7 +4905,7 @@ export default function App() {
       const pureBase64 = compressedBase64.split(',')[1];
 
       setProgressMsg('Menganalisis komposisi & dampak...');
-      const analysis = await analyzeWaste(pureBase64);
+      const analysis = await analyzeWaste(pureBase64, user?.uid || userData.uid);
       setResult(analysis);
 
       // Award points & update history
@@ -4979,6 +4992,29 @@ export default function App() {
     } catch (err: any) {
       console.error("Detail Error Pemindaian:", err);
       const errorMsg = err.message || 'Gagal memproses gambar.';
+      
+      // Log error with context
+      let errorType = 'scan_analysis_failed';
+      if (errorMsg.toLowerCase().includes('timeout')) {
+        errorType = 'scan_timeout';
+      } else if (errorMsg.toLowerCase().includes('api')) {
+        errorType = 'scan_api_error';
+      } else if (errorMsg.toLowerCase().includes('image')) {
+        errorType = 'scan_invalid_image';
+      }
+      
+      await logError({
+        severity: 'ERROR',
+        type: errorType,
+        message: errorMsg,
+        context: 'waste_scan',
+        userId: user?.uid || userData.uid,
+        userEmail: user?.email || userData.email,
+        functionName: 'handleImageInput',
+        stack: err instanceof Error ? err.stack : undefined,
+        metadata: { fileName: (e.target.files?.[0])?.name }
+      });
+      
       const userFriendlyError = errorMsg.toLowerCase().includes('image input')
         ? 'Model gambar sedang tidak dapat digunakan. Coba ambil foto ulang atau pilih gambar lain.'
         : errorMsg;
@@ -5704,8 +5740,13 @@ export default function App() {
               <div className="mb-8 text-center">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <span className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${result.category === 'Organik' ? 'bg-green-100 text-green-700' :
+                    result.category === 'Residu' ? 'bg-amber-100 text-amber-700' :
                     result.category === 'Anorganik' ? 'bg-blue-100 text-blue-700' :
                       result.category === 'B3' ? 'bg-red-100 text-red-700' :
+                        result.category === 'Kaca' ? 'bg-cyan-100 text-cyan-700' :
+                        result.category === 'Plastik' ? 'bg-purple-100 text-purple-700' :
+                        result.category === 'Kertas' ? 'bg-amber-50 text-amber-900' :
+                        result.category === 'Logam' ? 'bg-gray-200 text-gray-800' :
                         'bg-stone-100 text-stone-700'
                     }`}>
                     {result.category}

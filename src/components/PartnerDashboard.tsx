@@ -54,6 +54,7 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
   const [txs, setTxs] = useState<any[]>([]);
   const [offlineTxsList, setOfflineTxsList] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [dismissedAlert, setDismissedAlert] = useState(false);
   const [approveSuccessInfo, setApproveSuccessInfo] = useState<{
     partnerName: string;
     userName: string;
@@ -449,17 +450,73 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-            {partner.status === 'suspended' && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4">
-                <div className="w-10 h-10 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} />
+            {/* STATUS ALERTS - PROMINENT */}
+            {!dismissedAlert && partner?.status === 'suspended' && (
+              <div className="p-5 bg-gradient-to-r from-red-50 to-red-50/50 border-l-4 border-red-600 rounded-2xl flex items-start gap-4 shadow-md shadow-red-100/50 relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-red-500/5 rounded-full -mr-12 -mt-12" />
+                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center shrink-0 relative z-10">
+                  <AlertTriangle size={24} strokeWidth={2.5} />
                 </div>
-                <div>
-                  <h4 className="font-bold text-red-800 text-sm">Akun Partner Disuspend</h4>
-                  <p className="text-red-600 text-xs mt-1 leading-relaxed">
-                    Operasional Anda dihentikan sementara. Anda tidak bisa lagi menerima setoran sampah dari user sampai status diaktifkan kembali oleh admin.
+                <div className="flex-1 relative z-10">
+                  <h4 className="font-black text-red-800 text-base mb-1">🚨 Akun Partner DISUSPEND</h4>
+                  <p className="text-red-700 text-sm leading-relaxed mb-3">
+                    Status operasional Anda telah dihentikan sementara oleh admin. Anda tidak dapat menerima setoran sampah dari user sampai status diaktifkan kembali.
+                  </p>
+                  <p className="text-xs text-red-600 font-medium">
+                    📞 Hubungi admin untuk informasi lebih lanjut atau untuk mengajukan banding.
                   </p>
                 </div>
+                <button
+                  onClick={() => setDismissedAlert(true)}
+                  className="shrink-0 text-red-400 hover:text-red-600 transition-colors p-1 relative z-10"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            )}
+
+            {!dismissedAlert && partner?.status === 'rejected' && (
+              <div className="p-5 bg-gradient-to-r from-orange-50 to-orange-50/50 border-l-4 border-orange-600 rounded-2xl flex items-start gap-4 shadow-md shadow-orange-100/50 relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-orange-500/5 rounded-full -mr-12 -mt-12" />
+                <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center shrink-0 relative z-10">
+                  <X size={24} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 relative z-10">
+                  <h4 className="font-black text-orange-800 text-base mb-1">❌ Pendaftaran Partner Ditolak</h4>
+                  <p className="text-orange-700 text-sm leading-relaxed mb-3">
+                    Aplikasi pendaftaran Anda sebagai partner bank sampah telah ditolak oleh admin. 
+                  </p>
+                  <p className="text-xs text-orange-600 font-medium">
+                    📧 Silakan hubungi admin untuk mengetahui alasan penolakan dan kemungkinan mendaftar ulang.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDismissedAlert(true)}
+                  className="shrink-0 text-orange-400 hover:text-orange-600 transition-colors p-1 relative z-10"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            )}
+
+            {!dismissedAlert && partner?.status === 'pending' && (
+              <div className="p-5 bg-gradient-to-r from-amber-50 to-amber-50/50 border-l-4 border-amber-600 rounded-2xl flex items-start gap-4 shadow-md shadow-amber-100/50 relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12" />
+                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 relative z-10">
+                  <Clock size={24} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 relative z-10">
+                  <h4 className="font-black text-amber-800 text-base mb-1">⏳ Menunggu Verifikasi Admin</h4>
+                  <p className="text-amber-700 text-sm leading-relaxed">
+                    Aplikasi partner Anda sedang diproses oleh admin. Anda akan menerima notifikasi ketika status berubah. Terimakasih atas kesabaran Anda!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDismissedAlert(true)}
+                  className="shrink-0 text-amber-400 hover:text-amber-600 transition-colors p-1 relative z-10"
+                >
+                  <X size={20} />
+                </button>
               </div>
             )}
             
@@ -467,13 +524,17 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
             <div className="p-6 border border-stone-100 rounded-3xl bg-stone-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <div className="text-lg font-black text-stone-800">{partner.name}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
-                    partner.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                    partner.status === 'suspended' ? 'bg-red-100 text-red-700 border-red-200' :
-                    'bg-amber-100 text-amber-700 border-amber-200'
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
+                    partner.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-emerald-100/50' :
+                    partner.status === 'suspended' ? 'bg-red-100 text-red-700 border-red-200 shadow-red-100/50' :
+                    partner.status === 'rejected' ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-orange-100/50' :
+                    'bg-amber-100 text-amber-700 border-amber-200 shadow-amber-100/50'
                   }`}>
-                    {partner.status}
+                    Status: {partner.status === 'approved' ? '✅ Aktif' : 
+                             partner.status === 'suspended' ? '🔴 Disuspend' : 
+                             partner.status === 'rejected' ? '❌ Ditolak' : 
+                             '⏳ Menunggu'}
                   </span>
                   <span className="text-[10px] text-stone-400 font-medium">{partner.email}</span>
                 </div>

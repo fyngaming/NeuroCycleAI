@@ -4,6 +4,7 @@ import * as tf from "@tensorflow/tfjs";
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
+import { logError } from "../lib/errorLogger";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '') || '';
 
@@ -14,7 +15,7 @@ const DEBUG_WASTE = (import.meta.env && import.meta.env.VITE_WASTE_DEBUG === 'tr
 
 export interface WasteAnalysis {
   name: string;
-  category: "Organik" | "Anorganik" | "B3" | "Kertas" | "Plastik" | "Logam";
+  category: "Organik" | "Residu" | "Anorganik" | "B3" | "Kertas" | "Plastik" | "Logam" | "Kaca";
   composition: {
     material: string;
     percentage: number;
@@ -370,7 +371,7 @@ function formatLabel(label: string): string {
 }
 
 function normalizeWasteAnalysis(analysis: WasteAnalysis, confidence: number): WasteAnalysis {
-  const validCategories = ["Organik", "Anorganik", "B3", "Kertas", "Plastik", "Logam"] as const;
+  const validCategories = ["Organik", "Residu", "Anorganik", "B3", "Kertas", "Plastik", "Logam", "Kaca"] as const;
   const category = validCategories.includes(analysis.category) ? analysis.category : "Anorganik";
 
   return {
@@ -432,6 +433,24 @@ const TEMPLATES: Record<string, WasteAnalysis> = {
     ],
     impactStats: { co2Saved: 45, waterSaved: 18, energySaved: 4 },
   },
+  residue: {
+    name: "Sampah Residu/Sisa Makanan",
+    category: "Residu",
+    composition: [
+      { material: "Sisa makanan/residu organik", percentage: 100, description: "Limbah makanan mentah atau matang, potongan daging, tulang, sisa nasi, kulit buah, sayuran, dll." },
+    ],
+    disposalGuide: "Kumpulkan dalam wadah tertutup dan basah, pisahkan dari sampah plastik dan logam. Setor ke bank sampah dengan label Residu atau gunakan untuk pakan ternak/kompos.",
+    recyclable: true,
+    accuracy: 0.55,
+    tips: "Simpan di wadah tertutup untuk menghindari bau dan lalat. Bersihkan tangan setelah menangani. Sebaiknya dibuang dalam 2-3 hari untuk mencegah pembusukan berlebih.",
+    environmentalImpact: "Mengelola residu makanan dengan baik mencegah pencemaran air dan tanah, serta dapat diolah menjadi biogas atau pupuk organik.",
+    creativeIdeas: [
+      "Sisa makanan dapat diolah menjadi eco-enzyme yang berguna untuk pembersih alami.",
+      "Tulang dan cangkang dapat dikeringkan dan dibuat sebagai bahan pupuk organik berkualitas tinggi.",
+      "Residu makanan dapat menjadi bahan pakan alternatif untuk ternak atau kompos rumahan.",
+    ],
+    impactStats: { co2Saved: 55, waterSaved: 20, energySaved: 5 },
+  },
   paper: {
     name: "Sampah Kertas",
     category: "Kertas",
@@ -472,7 +491,7 @@ const TEMPLATES: Record<string, WasteAnalysis> = {
   },
   glass: {
     name: "Sampah Kaca",
-    category: "Anorganik",
+    category: "Kaca",
     composition: [
       { material: "Kaca", percentage: 92, description: "Wadah kaca, botol kaca, atau pecahan kaca yang tidak mudah terurai." },
       { material: "Tutup, label, atau sisa cairan", percentage: 8, description: "Pisahkan tutup logam/plastik dan bersihkan sebelum didaur ulang." },
@@ -532,18 +551,18 @@ const TEMPLATES: Record<string, WasteAnalysis> = {
 const COCO_CLASS_TO_WASTE: Record<string, { templateKey: keyof typeof TEMPLATES; label: string }> = {
   'bottle': { templateKey: 'plastic', label: 'Botol Plastik' },
   'wine glass': { templateKey: 'glass', label: 'Gelas Kaca' },
-  'cup': { templateKey: 'glass', label: 'Mangkuk/Cangkir' },
-  'bowl': { templateKey: 'glass', label: 'Mangkuk' },
-  'banana': { templateKey: 'organic', label: 'Pisang' },
-  'apple': { templateKey: 'organic', label: 'Apel' },
-  'sandwich': { templateKey: 'organic', label: 'Roti/Sandwich' },
-  'orange': { templateKey: 'organic', label: 'Jeruk' },
-  'broccoli': { templateKey: 'organic', label: 'Brokoli' },
-  'carrot': { templateKey: 'organic', label: 'Wortel' },
-  'hot dog': { templateKey: 'organic', label: 'Hotdog' },
-  'pizza': { templateKey: 'organic', label: 'Pizza' },
-  'donut': { templateKey: 'organic', label: 'Donat' },
-  'cake': { templateKey: 'organic', label: 'Kue' },
+  'cup': { templateKey: 'residue', label: 'Makanan di Cangkir' },
+  'bowl': { templateKey: 'residue', label: 'Makanan di Mangkuk' },
+  'banana': { templateKey: 'residue', label: 'Sisa Makanan/Buah' },
+  'apple': { templateKey: 'residue', label: 'Sisa Buah' },
+  'sandwich': { templateKey: 'residue', label: 'Sisa Sandwich' },
+  'orange': { templateKey: 'residue', label: 'Sisa Jeruk' },
+  'broccoli': { templateKey: 'residue', label: 'Sisa Sayuran' },
+  'carrot': { templateKey: 'residue', label: 'Sisa Wortel' },
+  'hot dog': { templateKey: 'residue', label: 'Sisa Hotdog' },
+  'pizza': { templateKey: 'residue', label: 'Sisa Pizza' },
+  'donut': { templateKey: 'residue', label: 'Sisa Donat' },
+  'cake': { templateKey: 'residue', label: 'Sisa Kue' },
   'book': { templateKey: 'paper', label: 'Buku' },
   'scissors': { templateKey: 'metal', label: 'Gunting' },
   'fork': { templateKey: 'metal', label: 'Garpu' },
@@ -564,12 +583,12 @@ const COCO_CLASS_TO_WASTE: Record<string, { templateKey: keyof typeof TEMPLATES;
   'backpack': { templateKey: 'plastic', label: 'Tas Ransel' },
   'umbrella': { templateKey: 'plastic', label: 'Payung' },
   'handbag': { templateKey: 'plastic', label: 'Tas' },
-  
+  'plate': { templateKey: 'residue', label: 'Piring Berisi Makanan' },
   'chair': { templateKey: 'mixed', label: 'Kursi' },
   'couch': { templateKey: 'mixed', label: 'Sofa' },
   'potted plant': { templateKey: 'organic', label: 'Tanaman Pot' },
   'bed': { templateKey: 'mixed', label: 'Tempat Tidur' },
-  'dining table': { templateKey: 'mixed', label: 'Meja Makan' },
+  'dining table': { templateKey: 'residue', label: 'Makanan di Meja' },
   'clock': { templateKey: 'mixed', label: 'Jam' },
   'vase': { templateKey: 'glass', label: 'Vas' },
   'teddy bear': { templateKey: 'mixed', label: 'Boneka' },
@@ -731,9 +750,29 @@ const DIRECT_LABEL_MAP: Record<string, keyof typeof TEMPLATES> = {
   'catalog': 'paper',
   'letter': 'paper',
   'package': 'paper',
-  // Organic
+  // Organic/Residue
   'food': 'organic',
-  'sisa makanan': 'organic',
+  'sisa makanan': 'residue',
+  'residu': 'residue',
+  'residue': 'residue',
+  'food residue': 'residue',
+  'food waste': 'residue',
+  'sampah organik': 'residue',
+  'bone': 'residue',
+  'tulang': 'residue',
+  'grill mark': 'residue',
+  'cooked food': 'residue',
+  'leftover': 'residue',
+  'sisa nasi': 'residue',
+  'nasi sisa': 'residue',
+  'sisa masak': 'residue',
+  'bekas masak': 'residue',
+  'potongan daging': 'residue',
+  'sisa daging': 'residue',
+  'sisa ikan': 'residue',
+  'sisa ayam': 'residue',
+  'tulang ayam': 'residue',
+  'sisa sup': 'residue',
   'banana': 'organic',
   'pisang': 'organic',
   'apple': 'organic',
@@ -907,6 +946,9 @@ function classifyWasteType(label: string): keyof typeof TEMPLATES {
     if (text.includes(key)) return DIRECT_LABEL_MAP[key];
   }
 
+  // Check for residue/food waste first - more specific than generic organic
+  if (/(sisa makanan|residu|residue|food residue|food waste|sampah organik|bone|tulang|cooked|leftover|sisa nasi|sisa masak|bekas masak|potongan daging|sisa daging|sisa ikan|sisa ayam|tulang ayam|sisa sup)/.test(text)) return "residue";
+  
   if (/(battery|baterai|charger|cable|wire|plug|electronic|phone|mouse|keyboard|medicine|pill|chemical|spray|paint|cleaner|cosmetic|tube|light[\s-]?bulb|bulb|thermometer|toner|ink|pesticide|laptop|tv|remote|microwave|oven|toaster|refrigerator|hair[\s-]?dryer|toothbrush)/.test(text)) return "b3";
   if (/(banana|apple|orange|fruit|vegetable|leaf|plant|food|cake|bread|rice|eggshell|peel|flower|grass|corn|potato|avocado|strawberry|pineapple|lettuce|cucumber|carrot|mushroom|pizza|sandwich|hotdog|donut|sushi|ramen|noodle|pasta|steak|chicken|fish|shrimp|crab|lobster|meat|egg|cheese|yogurt|coffee|tea|juice|soda|milk|water|sugar|salt|pepper|oil|sauce|soup|salad|ice[\s-]?cream|cookie|candy|chocolate)/.test(text)) return "organic";
   if (/(paper[\s-]?towel|toilet[\s-]?tissue|notebook|envelope|cardboard|box|newspaper|book|receipt|paper[\s-]?bag|paper|carton|tissue|napkin|menu|poster|magazine|catalog|folder|envelope|letter|package)/.test(text)) return "paper";
@@ -1000,9 +1042,23 @@ async function analyzeWasteWithCoco(base64Image: string): Promise<{ name: string
 function heuristicWasteType(color: { r: number; g: number; b: number; brightness: number; saturation: number }): keyof typeof TEMPLATES {
   const { r, g, b, brightness, saturation } = color;
 
-  // Organic: green/brown/red/yellow tones (fruits, vegetables, food)
+  // AGGRESSIVE RESIDUE DETECTION: Brown/tan/food colors (cooked food, plates with food)
+  // Dark brown (cooked rice, meat, sauce)
+  if (r > 100 && r < 160 && g > 60 && g < 130 && b < 90 && brightness < 0.6 && brightness > 0.15) return "residue";
+  // Medium brown (general food color)
+  if (r > 130 && g > 90 && b < 100 && saturation > 0.1 && brightness < 0.75) return "residue";
+  // Warm beige/tan (cooked food on plate)
+  if (r > 160 && g > 130 && b < 110 && saturation < 0.3 && brightness > 0.4) return "residue";
+  // Food plate colors (mix of browns and reds)
+  if (r > 110 && g > 70 && b < 80 && saturation > 0.15 && brightness < 0.65) return "residue";
+  // Very saturated warm tones (food with sauce/oil)
+  if (r > g * 1.05 && g > b * 1.1 && saturation > 0.3 && brightness > 0.3 && brightness < 0.7) return "residue";
+
+  // Organic: green/bright colors (fresh fruits, vegetables) - green tones with good saturation
   if (g > r * 1.1 && g > b * 1.05 && saturation > 0.25 && brightness > 0.35) return "organic";
+  // Red/yellow organic (tomato, apple, citrus)
   if (r > 120 && g > 80 && b < 80 && saturation > 0.3 && brightness > 0.3 && brightness < 0.8) return "organic";
+  // Bright yellow/orange (citrus, banana)
   if (r > 150 && g > 100 && b < 100 && saturation > 0.2 && brightness > 0.4) return "organic";
   
   // Plastic: transparent/white/light colored (bottles, containers, wrappers)
@@ -1020,17 +1076,19 @@ function heuristicWasteType(color: { r: number; g: number; b: number; brightness
   if (saturation < 0.12 && brightness > 0.65 && b > r && b > g) return "glass";
   
   // Metal: true metallic gray/silver with moderate brightness
-  // Make metal detection stricter to avoid classifying many pile photos as metal.
   if (saturation < 0.06 && brightness > 0.45 && brightness < 0.75 && Math.abs(r - g) < 18 && Math.abs(g - b) < 18) return "metal";
   
-  // Dark objects = mixed
-  if (brightness < 0.2) return "mixed";
+  // Dark objects = residue if brownish, else mixed
+  if (brightness < 0.2) {
+    if (r > b && g > b * 0.9) return "residue";
+    return "mixed";
+  }
   
-  // Default: mixed with lower confidence
+  // Default: mixed
   return "mixed";
 }
 
-async function aggregateLocalPredictions(base64Image: string): Promise<{ type: keyof typeof TEMPLATES; name: string; composition: { material: string; percentage: number; description?: string }[]; confidence: number } | null> {
+async function aggregateLocalPredictions(base64Image: string, userId?: string): Promise<{ type: keyof typeof TEMPLATES; name: string; composition: { material: string; percentage: number; description?: string }[]; confidence: number } | null> {
   try {
     const image = await loadImageElement(`data:image/jpeg;base64,${base64Image}`);
 
@@ -1060,7 +1118,7 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
       'toaster', 'refrigerator', 'tv', 'laptop', 'backpack', 'umbrella', 'handbag', 'suitcase',
       'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'skateboard',
       'surfboard', 'tennis racket', 'chair', 'couch', 'bed', 'dining table', 'toilet',
-      'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+      'dining table', 'potted plant', // food-bearing surfaces
     ]);
 
     // COCO contributions - highest priority for object detection
@@ -1098,8 +1156,16 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
       const isNonWaste = nonWasteKeywords.some(keyword => label.includes(keyword));
       if (isNonWaste) continue;
       
-      const type = classifyWasteType(label);
-      const w = (Number(p.probability) || 0) * 0.4;
+      // Boost weight for food-related predictions
+      let type = classifyWasteType(label);
+      let w = (Number(p.probability) || 0) * 0.4;
+      
+      // If MobileNet detects food-related items, aggressively boost residue
+      if (/(food|apple|orange|banana|carrot|broccoli|tomato|lettuce|vegetable|fruit|plate|dish|rice|noodle|pasta|bread|meat|chicken|fish|seafood|soup|sauce)/.test(label)) {
+        type = 'residue';
+        w = (Number(p.probability) || 0) * 2.5; // Heavy boost for food
+      }
+      
       weights[type] = (weights[type] || 0) + w;
       labelNames[type] = formatLabel(label);
     }
@@ -1108,7 +1174,9 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
     try {
       const color = await getDominantColor(base64Image);
       const htype = heuristicWasteType(color);
-      weights[htype] = (weights[htype] || 0) + 0.6;
+      // Boost color weight, especially for residue detection
+      const colorWeight = htype === 'residue' ? 1.5 : 0.8;
+      weights[htype] = (weights[htype] || 0) + colorWeight;
     } catch {}
 
     if (DEBUG_WASTE) {
@@ -1169,11 +1237,21 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
 
     return { type: chosen, name, composition, confidence };
   } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    await logError({
+      severity: 'WARNING',
+      type: 'local_predictions_aggregation_failed',
+      message: `Local predictions aggregation failed: ${errorMsg}`,
+      context: 'waste_scan',
+      userId,
+      functionName: 'aggregateLocalPredictions',
+      stack: e instanceof Error ? e.stack : undefined
+    });
     return null;
   }
 }
 
-async function analyzeWasteLocally(base64Image: string): Promise<WasteAnalysis> {
+async function analyzeWasteLocally(base64Image: string, userId?: string): Promise<WasteAnalysis> {
   const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
   try {
@@ -1181,7 +1259,7 @@ async function analyzeWasteLocally(base64Image: string): Promise<WasteAnalysis> 
     await ensureTfBackend();
 
     // First try to aggregate local model predictions (mobilenet + coco + heuristic)
-    const aggregated = await aggregateLocalPredictions(base64Image);
+    const aggregated = await aggregateLocalPredictions(base64Image, userId);
     if (aggregated) {
       const template = TEMPLATES[aggregated.type] || TEMPLATES.mixed;
       return normalizeWasteAnalysis({
@@ -1199,7 +1277,7 @@ async function analyzeWasteLocally(base64Image: string): Promise<WasteAnalysis> 
     const bestPrediction = predictions[0];
 
     if (!bestPrediction) {
-      return getFallbackAnalysis(base64Image);
+      return await getFallbackAnalysis(base64Image, userId);
     }
 
     const label = bestPrediction.className;
@@ -1214,12 +1292,22 @@ async function analyzeWasteLocally(base64Image: string): Promise<WasteAnalysis> 
       accuracy: confidence,
     }, confidence);
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     console.warn("Local vision model gagal, menggunakan heuristik warna:", error);
-    return getFallbackAnalysis(base64Image);
+    await logError({
+      severity: 'WARNING',
+      type: 'local_model_fallback',
+      message: `Local vision model failed: ${errorMsg}`,
+      context: 'waste_scan',
+      userId,
+      functionName: 'analyzeWasteLocally',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return await getFallbackAnalysis(base64Image, userId);
   }
 }
 
-async function getFallbackAnalysis(base64Image: string): Promise<WasteAnalysis> {
+async function getFallbackAnalysis(base64Image: string, userId?: string): Promise<WasteAnalysis> {
   try {
     const color = await getDominantColor(base64Image);
     const type = heuristicWasteType(color);
@@ -1229,7 +1317,17 @@ async function getFallbackAnalysis(base64Image: string): Promise<WasteAnalysis> 
       name: template.name,
       accuracy: 0.5,
     }, 0.5);
-  } catch {
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    await logError({
+      severity: 'WARNING',
+      type: 'color_heuristic_failed',
+      message: `Color heuristic fallback failed: ${errorMsg}`,
+      context: 'waste_scan',
+      userId,
+      functionName: 'getFallbackAnalysis',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return normalizeWasteAnalysis(TEMPLATES.mixed, 0.5);
   }
 }
@@ -1273,30 +1371,42 @@ function parseWasteAnalysis(text: string): WasteAnalysis {
   }
 }
 
-async function analyzeWasteWithGemini(base64Image: string): Promise<WasteAnalysis> {
-  const prompt = `You are a professional waste analyzer. Analyze this waste photo and identify the visible object accurately.
-  CLASSIFICATION RULES (STRICT):
-  - Plastik: bottles, containers, wrappers, bags, cups, toys, shoes, hats, electronics casing. Look for transparent, white, or colored plastic surfaces.
-  - Organik: food waste, fruits, vegetables, meat, fish, bread, cake, coffee, tea, leaves, flowers, grass. Look for natural organic colors.
-  - Kertas: cardboard, paper, books, envelopes, napkins, tissues, boxes. Look for brown/beige paper texture.
-  - Logam: cans, foil, spoons, forks, knives, keys, scissors, nails, wires, bottle caps, coins. Look for metallic silver/gray shiny surfaces.
-  - Kaca: glass bottles, cups, vases, jars, windows, mirrors. Look for transparent blue/green glass or reflections.
-  - B3: batteries, chargers, cables, electronics, phones, keyboards, medicine, chemicals, sprays, paint, light bulbs.
-  IMPORTANT: Do NOT classify plastic bottles or food containers as Logam or Campuran. Do NOT classify food waste as Campuran.
-  Use the actual object in the photo to create HIGHLY ACCURATE composition percentages based on the visual materials. Provide a realistic disposal guide, creative upcycling ideas, tips, environmental impact, and impact stats.
-  You must return the result as a JSON object with this exact structure:
-  {
-    "name": "string (Specific name of the waste)",
-    "category": "Organik | Anorganik | B3 | Kertas | Plastik | Logam",
-    "composition": [{"material": "string", "percentage": number, "description": "string"}],
-    "disposalGuide": "string",
-    "recyclable": boolean,
-    "accuracy": number (between 0.7 and 0.99),
-    "tips": "string",
-    "environmentalImpact": "string",
-    "creativeIdeas": ["string", "string", "string"],
-    "impactStats": {"co2Saved": number, "waterSaved": number, "energySaved": number}
-  }`;
+async function analyzeWasteWithGemini(base64Image: string, userId?: string): Promise<WasteAnalysis> {
+  const prompt = `You are a professional waste analyzer specializing in Indonesian waste classification. Analyze this waste photo and identify the visible object accurately.
+
+CATEGORY DEFINITIONS (VERY IMPORTANT):
+- Residu: Sisa makanan/food waste (cooked or raw) - nasi sisa, daging, tulang ayam, sisa masak, bekas makanan, dll. ALWAYS use this for food leftovers/waste.
+- Organik: Fresh or dried organic materials - buah utuh, sayuran segar, daun, bunga, rumput, limbah taman
+- Plastik: Bottles, containers, bags, cups, toys, casing - transparent, white, or colored plastic surfaces
+- Kertas: Cardboard, paper, books, boxes - brown/beige paper texture
+- Logam: Cans, foil, utensils, nails, wires - metallic silver/gray shiny surfaces
+- Kaca: Glass bottles, cups, vases - transparent or blue/green glass
+- B3: Batteries, chargers, cables, electronics, medicine, chemicals - hazardous materials
+- Anorganik: Mixed materials that don't fit above categories
+
+CRITICAL IDENTIFICATION RULES:
+1. Food waste (sisa makanan) → ALWAYS classify as "Residu" NOT "Organik"
+2. Cooked food appearance (brown, beige, wet) → "Residu"
+3. Food leftovers, bones, meat scraps → "Residu"
+4. Plate/bowl contents from meal → "Residu"
+5. Fresh whole fruits/vegetables → "Organik"
+6. Garden waste (leaves, grass, flowers) → "Organik"
+
+Analyze the visible materials carefully and create accurate composition percentages based on visual evidence. Return realistic disposal guide, creative upcycling ideas, tips, environmental impact, and impact stats.
+
+You must return ONLY the result as a JSON object with this exact structure:
+{
+  "name": "string (Specific name of the waste)",
+  "category": "Residu | Organik | Anorganik | B3 | Kertas | Plastik | Logam | Kaca",
+  "composition": [{"material": "string", "percentage": number, "description": "string"}],
+  "disposalGuide": "string",
+  "recyclable": boolean,
+  "accuracy": number (between 0.7 and 0.99),
+  "tips": "string",
+  "environmentalImpact": "string",
+  "creativeIdeas": ["string", "string", "string"],
+  "impactStats": {"co2Saved": number, "waterSaved": number, "energySaved": number}
+}`;
 
   const parts: Part[] = [
     {
@@ -1322,15 +1432,44 @@ async function analyzeWasteWithGemini(base64Image: string): Promise<WasteAnalysi
       return normalizeWasteAnalysis(parseWasteAnalysis(text), 0.82);
     } catch (e: any) {
       errors.push(`${modelName}: ${e?.message || e}`);
+      await logError({
+        severity: 'WARNING',
+        type: 'gemini_model_fallback',
+        message: `Model ${modelName} failed: ${e?.message}`,
+        context: 'waste_scan',
+        userId,
+        functionName: 'analyzeWasteWithGemini',
+        metadata: { modelName, errorMessage: e?.message }
+      });
     }
   }
 
-  throw new Error(`Gemini gagal: ${errors.join(' | ')}`);
+  const finalError = new Error(`Gemini gagal: ${errors.join(' | ')}`);
+  await logError({
+    severity: 'ERROR',
+    type: 'gemini_all_models_failed',
+    message: finalError.message,
+    context: 'waste_scan',
+    userId,
+    functionName: 'analyzeWasteWithGemini',
+    metadata: { attempts: IMAGE_ANALYSIS_MODELS.length, errors }
+  });
+  throw finalError;
 }
 
-export async function analyzeWaste(base64Image: string): Promise<WasteAnalysis> {
+export async function analyzeWaste(base64Image: string, userId?: string): Promise<WasteAnalysis> {
   if (!base64Image || base64Image.length < 100) {
-    throw new Error('Gambar tidak valid atau terlalu kecil untuk dianalisis.');
+    const validationError = new Error('Gambar tidak valid atau terlalu kecil untuk dianalisis.');
+    await logError({
+      severity: 'WARNING',
+      type: 'invalid_image',
+      message: validationError.message,
+      context: 'waste_scan',
+      userId,
+      functionName: 'analyzeWaste',
+      metadata: { imageSize: base64Image?.length || 0 }
+    });
+    throw validationError;
   }
 
   let geminiError: Error | null = null;
@@ -1340,19 +1479,37 @@ export async function analyzeWaste(base64Image: string): Promise<WasteAnalysis> 
     try {
       const timeoutMs = 60000; // 60s
       const geminiResult = await Promise.race([
-        analyzeWasteWithGemini(base64Image),
+        analyzeWasteWithGemini(base64Image, userId),
         delay(timeoutMs).then(() => { throw new Error('Gemini timeout'); }),
       ]);
       return geminiResult;
     } catch (error: any) {
       geminiError = error instanceof Error ? error : new Error(String(error));
       console.warn(`Gemini attempt ${attempt + 1} failed:`, geminiError.message);
+      await logError({
+        severity: 'WARNING',
+        type: 'gemini_api_failed',
+        message: `Gemini attempt ${attempt + 1}/${2} failed: ${geminiError.message}`,
+        context: 'waste_scan',
+        userId,
+        functionName: 'analyzeWaste',
+        metadata: { attempt: attempt + 1, error: geminiError.message }
+      });
       // small backoff before retry
       if (attempt === 0) await delay(1000);
     }
   }
+  
+  await logError({
+    severity: 'ERROR',
+    type: 'gemini_exhausted_retries',
+    message: `Gemini failed after 2 attempts: ${geminiError?.message || 'unknown'}. Fallback to local analysis.`,
+    context: 'waste_scan',
+    userId,
+    functionName: 'analyzeWaste'
+  });
   console.warn('Gemini gagal setelah retry, menggunakan analisis lokal:', geminiError?.message || 'unknown');
 
-  const localResult = await analyzeWasteLocally(base64Image);
+  const localResult = await analyzeWasteLocally(base64Image, userId);
   return localResult;
 }
