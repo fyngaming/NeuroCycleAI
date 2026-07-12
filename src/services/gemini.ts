@@ -793,33 +793,32 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
     const weights: Record<string, number> = {};
     const labelNames: Record<string, string> = {};
 
-    // Mobilenet contributions
-    for (const p of mnPreds || []) {
-      const label = (p.className || '').toLowerCase();
-      const type = classifyWasteType(label);
-        const w = (Number(p.probability) || 0) * 1.2;
-      weights[type] = (weights[type] || 0) + w;
-      labelNames[type] = formatLabel(label);
-    }
-
-    // COCO contributions
+    // COCO contributions - strongest weight for object detection
     for (const p of cocoPreds || []) {
       const cocoClass = (p.class || '').toLowerCase();
       const mapped = COCO_CLASS_TO_WASTE[cocoClass];
       if (mapped) {
         const type = mapped.templateKey;
-        const w = (Number(p.score) || 0) * 2.0; // stronger weight for object detection
+        const w = (Number(p.score) || 0) * 3.0; // stronger weight for object detection
         weights[type] = (weights[type] || 0) + w;
         labelNames[type] = mapped.label || labelNames[type] || formatLabel(cocoClass);
       }
     }
 
-    // Color heuristic small contribution
+    // Mobilenet contributions - reduced weight to avoid confusion
+    for (const p of mnPreds || []) {
+      const label = (p.className || '').toLowerCase();
+      const type = classifyWasteType(label);
+      const w = (Number(p.probability) || 0) * 0.6;
+      weights[type] = (weights[type] || 0) + w;
+      labelNames[type] = formatLabel(label);
+    }
+
+    // Color heuristic - increased contribution for better classification
     try {
       const color = await getDominantColor(base64Image);
       const htype = heuristicWasteType(color);
-      // reduce color heuristic influence
-      weights[htype] = (weights[htype] || 0) + 0.15;
+      weights[htype] = (weights[htype] || 0) + 0.4;
     } catch {}
 
     if (DEBUG_WASTE) {
@@ -835,7 +834,7 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
     entries.sort((a, b) => b.w - a.w);
     const total = entries.reduce((s, e) => s + e.w, 0) || 1;
 
-    // If COCO produced detections, compute coco-specific weights to prefer object detections
+    // If COCO produced strong detection, prefer it
     const cocoWeights: Record<string, number> = {};
     for (const p of cocoPreds || []) {
       const cocoClass = (p.class || '').toLowerCase();
@@ -866,13 +865,13 @@ async function aggregateLocalPredictions(base64Image: string): Promise<{ type: k
     if (chosen === 'mixed' && Object.keys(cocoWeights).length > 0) {
       const cocoEntries = Object.keys(cocoWeights).map(k => ({ k, w: cocoWeights[k] }));
       cocoEntries.sort((a, b) => b.w - a.w);
-      if (cocoEntries[0] && cocoEntries[0].k !== 'mixed' && cocoEntries[0].w > 0.35 * total) {
+      if (cocoEntries[0] && cocoEntries[0].k !== 'mixed' && cocoEntries[0].w > 0.3 * total) {
         chosen = cocoEntries[0].k as keyof typeof TEMPLATES;
       }
     }
 
     // If top result is 'mixed' but another type has close weight, pick the more specific type
-    if (chosen === 'mixed' && entries[1] && entries[1].w > entries[0].w * 0.55) {
+    if (chosen === 'mixed' && entries[1] && entries[1].w > entries[0].w * 0.6) {
       chosen = entries[1].k as keyof typeof TEMPLATES;
     }
     const name = labelNames[chosen] || TEMPLATES[chosen].name;
