@@ -36,7 +36,7 @@ export interface WasteAnalysis {
 
 const IMAGE_ANALYSIS_MODELS = [
   "gemini-2.5-flash",
-  "gemini-3.5-flash",
+  "gemini-2.0-flash",
   "gemini-2.5-pro",
 ];
 
@@ -1474,29 +1474,40 @@ export async function analyzeWaste(base64Image: string, userId?: string): Promis
 
   let geminiError: Error | null = null;
 
-  // Try cloud Gemini with extended timeout and one retry
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const timeoutMs = 60000; // 60s
-      const geminiResult = await Promise.race([
-        analyzeWasteWithGemini(base64Image, userId),
-        delay(timeoutMs).then(() => { throw new Error('Gemini timeout'); }),
-      ]);
-      return geminiResult;
-    } catch (error: any) {
-      geminiError = error instanceof Error ? error : new Error(String(error));
-      console.warn(`Gemini attempt ${attempt + 1} failed:`, geminiError.message);
-      await logError({
-        severity: 'WARNING',
-        type: 'gemini_api_failed',
-        message: `Gemini attempt ${attempt + 1}/${2} failed: ${geminiError.message}`,
-        context: 'waste_scan',
-        userId,
-        functionName: 'analyzeWaste',
-        metadata: { attempt: attempt + 1, error: geminiError.message }
-      });
-      // small backoff before retry
-      if (attempt === 0) await delay(1000);
+  // Skip cloud Gemini entirely if no API key is configured (use local on-device analysis)
+  const skipGemini = !apiKey;
+
+  if (!skipGemini) {
+    // Try cloud Gemini with extended timeout and one retry
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const timeoutMs = 60000; // 60s
+        const geminiResult = await Promise.race([
+          analyzeWasteWithGemini(base64Image, userId),
+          delay(timeoutMs).then(() => { throw new Error('Gemini timeout'); }),
+        ]);
+        return geminiResult;
+      } catch (error: any) {
+        geminiError = error instanceof Error ? error : new Error(String(error));
+        console.warn(`Gemini attempt ${attempt + 1} failed:`, geminiError.message);
+        await logError({
+          severity: 'WARNING',
+          type: 'gemini_api_failed',
+          message: `Gemini attempt ${attempt + 1}/${2} failed: ${geminiError.message}`,
+          context: 'waste_scan',
+          userId,
+          functionName: 'analyzeWaste',
+          metadata: { attempt: attempt + 1, error: geminiError.message }
+        });
+        // If the model is text-only / invalid / not found, retrying won't help — fall back to local now
+        const msg = geminiError.message.toLowerCase();
+        const fatal = msg.includes('does not support image') || msg.includes('not found') ||
+          msg.includes('not supported') || msg.includes('invalid') || msg.includes('permission') ||
+          msg.includes('api key') || msg.includes('api_key') || msg.includes('unauthorized');
+        if (fatal) break;
+        // small backoff before retry
+        if (attempt === 0) await delay(1000);
+      }
     }
   }
   
