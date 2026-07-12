@@ -1,12 +1,16 @@
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import * as mobilenet from "@tensorflow-models/mobilenet";
 import * as tf from "@tensorflow/tfjs";
+import '@tensorflow/tfjs-backend-webgl';
+import '@tensorflow/tfjs-backend-cpu';
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '') || '';
 
 const genAI = new GoogleGenerativeAI(apiKey);
 export { genAI };
+
+const DEBUG_WASTE = (import.meta.env && import.meta.env.VITE_WASTE_DEBUG === 'true') || (typeof process !== 'undefined' && process.env.VITE_WASTE_DEBUG === 'true');
 
 export interface WasteAnalysis {
   name: string;
@@ -40,6 +44,24 @@ let cocoModelPromise: Promise<any> | null = null;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function ensureTfBackend(): Promise<void> {
+  try {
+    if (!tf || !tf.setBackend) return;
+    const preferred = ['webgl', 'cpu'];
+    for (const b of preferred) {
+      try {
+        await tf.setBackend(b);
+        await tf.ready();
+        if (tf.getBackend && tf.getBackend() === b) return;
+      } catch (e) {
+        // try next
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -542,16 +564,7 @@ const COCO_CLASS_TO_WASTE: Record<string, { templateKey: keyof typeof TEMPLATES;
   'backpack': { templateKey: 'plastic', label: 'Tas Ransel' },
   'umbrella': { templateKey: 'plastic', label: 'Payung' },
   'handbag': { templateKey: 'plastic', label: 'Tas' },
-  'suitcase': { templateKey: 'plastic', label: 'Koper' },
-  'frisbee': { templateKey: 'plastic', label: 'Frisbee' },
-  'skis': { templateKey: 'plastic', label: 'Ski' },
-  'snowboard': { templateKey: 'plastic', label: 'Snowboard' },
-  'sports ball': { templateKey: 'plastic', label: 'Bola' },
-  'kite': { templateKey: 'paper', label: 'Layang-layang' },
-  'baseball bat': { templateKey: 'metal', label: 'Tongkat Baseball' },
-  'skateboard': { templateKey: 'plastic', label: 'Skateboard' },
-  'surfboard': { templateKey: 'plastic', label: 'Papan Selancar' },
-  'tennis racket': { templateKey: 'mixed', label: 'Raket Tennis' },
+  
   'chair': { templateKey: 'mixed', label: 'Kursi' },
   'couch': { templateKey: 'mixed', label: 'Sofa' },
   'potted plant': { templateKey: 'organic', label: 'Tanaman Pot' },
@@ -600,8 +613,41 @@ const COCO_CLASS_TO_WASTE: Record<string, { templateKey: keyof typeof TEMPLATES;
   'tennis racket': { templateKey: 'mixed', label: 'Raket Tennis' },
 };
 
+// Direct mapping for common labels/keywords to reduce ambiguity
+const DIRECT_LABEL_MAP: Record<string, keyof typeof TEMPLATES> = {
+  'plastic bag': 'plastic',
+  'botol plastik': 'plastic',
+  'bottle': 'plastic',
+  'bottle cap': 'metal',
+  'can': 'metal',
+  'kaleng': 'metal',
+  'aluminum': 'metal',
+  'kardus': 'paper',
+  'cardboard': 'paper',
+  'box': 'paper',
+  'food': 'organic',
+  'sisa makanan': 'organic',
+  'banana': 'organic',
+  'apple': 'organic',
+  'plate': 'mixed',
+  'glass': 'glass',
+  'gelas': 'glass',
+  'battery': 'b3',
+  'baterai': 'b3',
+  'electronics': 'b3',
+  'charger': 'b3',
+  'shoe': 'plastic',
+  'fabric': 'mixed',
+  'clothing': 'mixed'
+};
+
 function classifyWasteType(label: string): keyof typeof TEMPLATES {
   const text = label.toLowerCase();
+
+  // Direct keyword map first (more specific)
+  for (const key of Object.keys(DIRECT_LABEL_MAP)) {
+    if (text.includes(key)) return DIRECT_LABEL_MAP[key];
+  }
 
   if (/(battery|baterai|charger|cable|wire|plug|electronic|phone|mouse|keyboard|medicine|pill|chemical|spray|paint|cleaner|cosmetic|tube|light[\s-]?bulb|bulb|thermometer|toner|ink|pesticide|laptop|tv|remote|microwave|oven|toaster|refrigerator|hair[\s-]?dryer|toothbrush)/.test(text)) return "b3";
   if (/(banana|apple|orange|fruit|vegetable|leaf|plant|food|cake|bread|rice|eggshell|peel|flower|grass|corn|potato|avocado|strawberry|pineapple|lettuce|cucumber|carrot|mushroom|pizza|sandwich|hotdog|donut|sushi|ramen|noodle|pasta|steak|chicken|fish|shrimp|crab|lobster|meat|egg|cheese|yogurt|coffee|tea|juice|soda|milk|water|sugar|salt|pepper|oil|sauce|soup|salad|ice[\s-]?cream|cookie|candy|chocolate)/.test(text)) return "organic";
@@ -716,7 +762,8 @@ function heuristicWasteType(color: { r: number; g: number; b: number; brightness
   if (saturation < 0.12 && brightness > 0.65 && b > r && b > g) return "glass";
   
   // Metal: true metallic gray/silver with moderate brightness
-  if (saturation < 0.08 && brightness > 0.35 && brightness < 0.65 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20) return "metal";
+  // Make metal detection stricter to avoid classifying many pile photos as metal.
+  if (saturation < 0.06 && brightness > 0.45 && brightness < 0.75 && Math.abs(r - g) < 18 && Math.abs(g - b) < 18) return "metal";
   
   // Dark objects = mixed
   if (brightness < 0.2) return "mixed";
@@ -725,20 +772,138 @@ function heuristicWasteType(color: { r: number; g: number; b: number; brightness
   return "mixed";
 }
 
+async function aggregateLocalPredictions(base64Image: string): Promise<{ type: keyof typeof TEMPLATES; name: string; composition: { material: string; percentage: number; description?: string }[]; confidence: number } | null> {
+  try {
+    const image = await loadImageElement(`data:image/jpeg;base64,${base64Image}`);
+
+    const [mobilenetModel, cocoModel] = await Promise.all([loadLocalVisionModel(), loadCocoSsdModel()]);
+
+    // mobilenet predictions
+    const mnPreds = await mobilenetModel.classify(image, 5);
+
+    // coco predictions (with bbox and score)
+    let cocoPreds: any[] = [];
+    try {
+      cocoPreds = await cocoModel.detect(image, 5);
+    } catch (e) {
+      // ignore coco errors
+      cocoPreds = [];
+    }
+
+    const weights: Record<string, number> = {};
+    const labelNames: Record<string, string> = {};
+
+    // Mobilenet contributions
+    for (const p of mnPreds || []) {
+      const label = (p.className || '').toLowerCase();
+      const type = classifyWasteType(label);
+        const w = (Number(p.probability) || 0) * 1.2;
+      weights[type] = (weights[type] || 0) + w;
+      labelNames[type] = formatLabel(label);
+    }
+
+    // COCO contributions
+    for (const p of cocoPreds || []) {
+      const cocoClass = (p.class || '').toLowerCase();
+      const mapped = COCO_CLASS_TO_WASTE[cocoClass];
+      if (mapped) {
+        const type = mapped.templateKey;
+        const w = (Number(p.score) || 0) * 2.0; // stronger weight for object detection
+        weights[type] = (weights[type] || 0) + w;
+        labelNames[type] = mapped.label || labelNames[type] || formatLabel(cocoClass);
+      }
+    }
+
+    // Color heuristic small contribution
+    try {
+      const color = await getDominantColor(base64Image);
+      const htype = heuristicWasteType(color);
+      // reduce color heuristic influence
+      weights[htype] = (weights[htype] || 0) + 0.15;
+    } catch {}
+
+    if (DEBUG_WASTE) {
+      console.log('WASTE_DEBUG: mobilenet preds=', mnPreds);
+      console.log('WASTE_DEBUG: coco preds=', cocoPreds);
+      try { const colorDbg = await getDominantColor(base64Image); console.log('WASTE_DEBUG: color=', colorDbg); } catch {}
+      console.log('WASTE_DEBUG: weights=', weights);
+    }
+
+    const entries = Object.keys(weights).map(k => ({ k, w: weights[k] }));
+    if (entries.length === 0) return null;
+
+    entries.sort((a, b) => b.w - a.w);
+    const total = entries.reduce((s, e) => s + e.w, 0) || 1;
+
+    // If COCO produced detections, compute coco-specific weights to prefer object detections
+    const cocoWeights: Record<string, number> = {};
+    for (const p of cocoPreds || []) {
+      const cocoClass = (p.class || '').toLowerCase();
+      const mapped = COCO_CLASS_TO_WASTE[cocoClass];
+      if (mapped) {
+        cocoWeights[mapped.templateKey] = (cocoWeights[mapped.templateKey] || 0) + (Number(p.score) || 0);
+      }
+    }
+
+    // Build composition from top 3 types
+    const top = entries.slice(0, 3);
+    const composition = top.map(e => {
+      const pct = Math.max(3, Math.round((e.w / total) * 100));
+      const template = TEMPLATES[e.k] || TEMPLATES.mixed;
+      return { material: template.composition[0]?.material || template.name, percentage: pct, description: template.composition[0]?.description };
+    });
+
+    // normalize percentages to sum 100
+    let sum = composition.reduce((s, x) => s + x.percentage, 0);
+    if (sum !== 100) {
+      const diff = 100 - sum;
+      composition[0].percentage = Math.min(100, composition[0].percentage + diff);
+      sum = composition.reduce((s, x) => s + x.percentage, 0);
+    }
+
+    // Prefer non-mixed coco detection if it's strong
+    let chosen = entries[0].k as keyof typeof TEMPLATES;
+    if (chosen === 'mixed' && Object.keys(cocoWeights).length > 0) {
+      const cocoEntries = Object.keys(cocoWeights).map(k => ({ k, w: cocoWeights[k] }));
+      cocoEntries.sort((a, b) => b.w - a.w);
+      if (cocoEntries[0] && cocoEntries[0].k !== 'mixed' && cocoEntries[0].w > 0.35 * total) {
+        chosen = cocoEntries[0].k as keyof typeof TEMPLATES;
+      }
+    }
+
+    // If top result is 'mixed' but another type has close weight, pick the more specific type
+    if (chosen === 'mixed' && entries[1] && entries[1].w > entries[0].w * 0.55) {
+      chosen = entries[1].k as keyof typeof TEMPLATES;
+    }
+    const name = labelNames[chosen] || TEMPLATES[chosen].name;
+    const confidence = clamp(entries[0].w / (total + 0.001), 0.35, 0.95);
+
+    return { type: chosen, name, composition, confidence };
+  } catch (e) {
+    return null;
+  }
+}
+
 async function analyzeWasteLocally(base64Image: string): Promise<WasteAnalysis> {
   const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
   try {
-    const cocoResult = await analyzeWasteWithCoco(base64Image);
-    if (cocoResult) {
-      const template = TEMPLATES[cocoResult.templateKey] || TEMPLATES.mixed;
+    // Ensure TFJS backend is ready before loading models
+    await ensureTfBackend();
+
+    // First try to aggregate local model predictions (mobilenet + coco + heuristic)
+    const aggregated = await aggregateLocalPredictions(base64Image);
+    if (aggregated) {
+      const template = TEMPLATES[aggregated.type] || TEMPLATES.mixed;
       return normalizeWasteAnalysis({
         ...template,
-        name: cocoResult.name,
-        accuracy: 0.75,
-      }, 0.75);
+        name: aggregated.name || template.name,
+        composition: aggregated.composition.length > 0 ? aggregated.composition : template.composition,
+        accuracy: aggregated.confidence,
+      }, aggregated.confidence);
     }
 
+    // Fallback: single-model classify + heuristic
     const image = await loadImageElement(dataUrl);
     const model = await loadLocalVisionModel();
     const predictions = await model.classify(image, 5);
@@ -782,14 +947,20 @@ async function getFallbackAnalysis(base64Image: string): Promise<WasteAnalysis> 
 
 async function loadLocalVisionModel(): Promise<any> {
   if (!localVisionModelPromise) {
-    localVisionModelPromise = mobilenet.load({ version: 2, alpha: 1.0 });
+    localVisionModelPromise = (async () => {
+      await ensureTfBackend();
+      return mobilenet.load({ version: 2, alpha: 1.0 });
+    })();
   }
   return localVisionModelPromise;
 }
 
 async function loadCocoSsdModel(): Promise<any> {
   if (!cocoModelPromise) {
-    cocoModelPromise = cocoSsd.load({ base: 'mobilenet_v2' });
+    cocoModelPromise = (async () => {
+      await ensureTfBackend();
+      return cocoSsd.load({ base: 'mobilenet_v2' });
+    })();
   }
   return cocoModelPromise;
 }
@@ -875,16 +1046,23 @@ export async function analyzeWaste(base64Image: string): Promise<WasteAnalysis> 
 
   let geminiError: Error | null = null;
 
-  try {
-    const geminiResult = await Promise.race([
-      analyzeWasteWithGemini(base64Image),
-      delay(20000).then(() => { throw new Error('Gemini timeout'); }),
-    ]);
-    return geminiResult;
-  } catch (error: any) {
-    geminiError = error instanceof Error ? error : new Error(String(error));
-    console.warn('Gemini gagal/timeout, menggunakan analisis lokal:', geminiError.message);
+  // Try cloud Gemini with extended timeout and one retry
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const timeoutMs = 60000; // 60s
+      const geminiResult = await Promise.race([
+        analyzeWasteWithGemini(base64Image),
+        delay(timeoutMs).then(() => { throw new Error('Gemini timeout'); }),
+      ]);
+      return geminiResult;
+    } catch (error: any) {
+      geminiError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`Gemini attempt ${attempt + 1} failed:`, geminiError.message);
+      // small backoff before retry
+      if (attempt === 0) await delay(1000);
+    }
   }
+  console.warn('Gemini gagal setelah retry, menggunakan analisis lokal:', geminiError?.message || 'unknown');
 
   const localResult = await analyzeWasteLocally(base64Image);
   return localResult;
