@@ -4,14 +4,18 @@ import { db } from '../lib/firebase';
 import { normalizePhotoUrl } from '../lib/photoUrl';
 
 const uploadToImgBB = async (file: Blob | File): Promise<string> => {
+  const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
+  if (!apiKey) throw new Error('VITE_IMGBB_API_KEY belum disetel di environment (Vercel).');
   const formData = new FormData();
   formData.append('image', file);
   const res = await fetch(
-    `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
+    `https://api.imgbb.com/1/upload?key=${apiKey}`,
     { method: 'POST', body: formData }
   );
   const json = await res.json();
-  if (!json.success || !json.data?.url) throw new Error('ImgBB upload gagal');
+  if (!json.success || !json.data?.url) {
+    throw new Error('ImgBB upload gagal: ' + (json?.error?.message || JSON.stringify(json).slice(0, 160)));
+  }
   return normalizePhotoUrl(json.data.url);
 };
 
