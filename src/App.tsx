@@ -65,7 +65,6 @@ import { normalizePhotoUrl } from './lib/photoUrl';
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signInWithEmailAndPassword,
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
@@ -4901,35 +4900,19 @@ export default function App() {
   };
 
   const handleAdminLogin = async (u: string, p: string) => {
-    const adminEmail = 'admin@neurocycle.id';
-    const adminPassword = import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu';
+    const adminUser = import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle';
+    const adminPass = import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu';
 
-    if (u !== (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') || p !== adminPassword) {
+    if (u !== adminUser || p !== adminPass) {
       alert('Username atau password salah!');
       return;
     }
 
-    try {
-      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-    } catch (error: any) {
-      console.error("Admin login failed:", error?.code, error?.message);
-      if (error?.code === 'auth/user-not-found') {
-        alert('Akun admin belum dibuat. Hubungi developer untuk setup akun admin di Firebase.');
-      } else if (error?.code === 'auth/wrong-password') {
-        alert('Password admin salah!');
-      } else {
-        alert("Gagal login admin. Error: " + (error?.code || error?.message || 'Unknown'));
-      }
-    }
+    setState('admin_dashboard');
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setState('login');
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    setState('login');
   };
 
 
