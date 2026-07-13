@@ -65,6 +65,7 @@ import { normalizePhotoUrl } from './lib/photoUrl';
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithEmailAndPassword,
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
@@ -4900,10 +4901,25 @@ export default function App() {
   };
 
   const handleAdminLogin = async (u: string, p: string) => {
-    if (u === (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') && p === (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
-      setState('admin_dashboard');
-    } else {
+    const adminEmail = 'admin@neurocycle.id';
+    const adminPassword = import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu';
+
+    if (u !== (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') || p !== adminPassword) {
       alert('Username atau password salah!');
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+    } catch (error: any) {
+      console.error("Admin login failed:", error?.code, error?.message);
+      if (error?.code === 'auth/user-not-found') {
+        alert('Akun admin belum dibuat. Hubungi developer untuk setup akun admin di Firebase.');
+      } else if (error?.code === 'auth/wrong-password') {
+        alert('Password admin salah!');
+      } else {
+        alert("Gagal login admin. Error: " + (error?.code || error?.message || 'Unknown'));
+      }
     }
   };
 
