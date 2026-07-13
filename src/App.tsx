@@ -4900,6 +4900,19 @@ export default function App() {
     }
   };
 
+  const handleAdminLogin = async (u: string, p: string) => {
+    if (u === (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') && p === (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
+      try {
+        await signInAnonymously(auth);
+      } catch (error: any) {
+        console.error("Admin login failed:", error?.code, error?.message);
+        alert("Gagal login admin. Error: " + (error?.code || error?.message || 'Unknown'));
+      }
+    } else {
+      alert('Username atau password salah!');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -4975,7 +4988,13 @@ export default function App() {
 
             // Jika user berhasil login dari halaman login, tunjukkan welcome screen dulu.
             // Tapi jangan redirect jika sedang di admin_dashboard
-            setState(prev => (prev === 'login' ? 'welcome' : prev === 'admin_dashboard' ? 'admin_dashboard' : prev));
+            const isAnonymous = currentUser.isAnonymous;
+            setState(prev => {
+              if (prev === 'admin_dashboard') return 'admin_dashboard';
+              if (isAnonymous) return 'admin_dashboard';
+              if (prev === 'login') return 'welcome';
+              return prev;
+            });
           } else {
             // New User Initialization
             const initialData: UserData = {
@@ -4990,7 +5009,12 @@ export default function App() {
             };
             await setDoc(userRef, initialData);
             setUserData(initialData);
-            setState(prev => prev === 'admin_dashboard' ? 'admin_dashboard' : 'welcome');
+            const isAnonymousNew = currentUser.isAnonymous;
+            setState(prev => {
+              if (prev === 'admin_dashboard') return 'admin_dashboard';
+              if (isAnonymousNew) return 'admin_dashboard';
+              return 'welcome';
+            });
           }
           // Selesaikan inisialisasi hanya setelah data Firestore tersedia
           setIsInitializing(false);
@@ -5306,21 +5330,15 @@ export default function App() {
         {state === 'login' && (
           <LoginScreen
             onGoogleLogin={handleGoogleLogin}
-            onAdminLogin={(u, p) => {
-              if (u === (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') && p === (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
-                setState('admin_dashboard');
-              } else {
-                alert('Username atau password salah!');
-              }
-            }}
+            onAdminLogin={handleAdminLogin}
           />
         )}
         {state === 'admin_dashboard' && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
             <AdminDashboard
-              onLogout={() => {
+              onLogout={async () => {
                 if (window.confirm("Apakah anda yakin ingin logout dari panel Admin?")) {
-                  setState('login');
+                  await handleLogout();
                 }
               }}
             />
