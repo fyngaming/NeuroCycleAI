@@ -49,6 +49,8 @@ import {
   X,
   Gift,
   Activity,
+  Bug,
+  Filter,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -1975,7 +1977,7 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin }: { onGoogleLogin: () => voi
 };
 
 const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'claims' | 'activity' | 'partner_activity' | 'missions' | 'articles' | 'mission_activity' | 'partners' | 'flagged_txs' | 'rewards'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'claims' | 'activity' | 'partner_activity' | 'missions' | 'articles' | 'mission_activity' | 'partners' | 'flagged_txs' | 'rewards' | 'error_logs'>('users');
   const [users, setUsers] = useState<UserData[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -2016,6 +2018,9 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   });
   const [articleThumbFile, setArticleThumbFile] = useState<File | null>(null);
   const [savingArticle, setSavingArticle] = useState(false);
+  const [errorLogs, setErrorLogs] = useState<any[]>([]);
+  const [errorLogFilter, setErrorLogFilter] = useState<'all' | 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO'>('all');
+  const [errorLogStatus, setErrorLogStatus] = useState<'all' | 'unresolved' | 'acknowledged' | 'fixed'>('all');
 
   useEffect(() => {
     import('./services/missionService').then(({ getMissions }) => {
@@ -2096,6 +2101,43 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'errorLogs'), (snap) => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+      setErrorLogs(logs);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleUpdateErrorLogStatus = async (logId: string, status: string) => {
+    try {
+      const logRef = doc(db, 'errorLogs', logId);
+      await updateDoc(logRef, { status, resolved: status === 'fixed' });
+      setErrorLogs(prev => prev.map(l => l.id === logId ? { ...l, status, resolved: status === 'fixed' } : l));
+    } catch (e: any) {
+      console.error('Failed to update error log status:', e);
+      alert('Gagal memperbarui status error log.');
+    }
+  };
+
+  const filteredErrorLogs = useMemo(() => {
+    return errorLogs.filter((log: any) => {
+      const severityMatch = errorLogFilter === 'all' || log.severity === errorLogFilter;
+      const statusMatch = errorLogStatus === 'all' || log.status === errorLogStatus;
+      return severityMatch && statusMatch;
+    });
+  }, [errorLogs, errorLogFilter, errorLogStatus]);
+
+  const errorLogStats = useMemo(() => {
+    const stats = { CRITICAL: 0, ERROR: 0, WARNING: 0, INFO: 0, total: errorLogs.length, unresolved: 0 };
+    errorLogs.forEach((log: any) => {
+      if (stats[log.severity as keyof typeof stats] !== undefined) stats[log.severity as keyof typeof stats]++;
+      if (!log.resolved && log.status !== 'fixed') stats.unresolved++;
+    });
+    return stats;
+  }, [errorLogs]);
 
   const handleAction = async (userUid: string, type: 'ban' | 'unban' | 'approve_deposit' | 'reject_deposit' | 'approve_claim' | 'reject_claim', itemId?: string) => {
     try {
@@ -2558,6 +2600,7 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             { id: 'articles', label: 'Artikel', icon: BookOpen },
             { id: 'mission_activity', label: 'Aktivitas Misi', icon: Award },
             { id: 'rewards', label: 'Kelola Reward', icon: Gift },
+            { id: 'error_logs', label: 'Error Logs', icon: Bug },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -4074,6 +4117,164 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 exit={{ opacity: 0, x: -20 }}
               >
                 <RewardManagement />
+              </motion.div>
+            )}
+
+            {activeTab === 'error_logs' && (
+              <motion.div
+                key="error_logs"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-white rounded-[48px] border border-stone-100 shadow-xl overflow-hidden">
+                  <div className="p-8 border-b border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl font-display font-black text-stone-900">Error Logs</h2>
+                      <p className="text-xs text-stone-400 font-bold mt-1">Monitor dan kelola error yang tercatat di sistem.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 bg-stone-50 rounded-2xl p-1.5 border border-stone-100">
+                        <Filter size={16} className="text-stone-400 ml-2" />
+                        <select
+                          value={errorLogFilter}
+                          onChange={e => setErrorLogFilter(e.target.value as any)}
+                          className="bg-transparent text-xs font-black uppercase tracking-widest text-stone-700 outline-none px-2 py-2"
+                        >
+                          <option value="all">Semua Severity</option>
+                          <option value="CRITICAL">Critical</option>
+                          <option value="ERROR">Error</option>
+                          <option value="WARNING">Warning</option>
+                          <option value="INFO">Info</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2 bg-stone-50 rounded-2xl p-1.5 border border-stone-100">
+                        <select
+                          value={errorLogStatus}
+                          onChange={e => setErrorLogStatus(e.target.value as any)}
+                          className="bg-transparent text-xs font-black uppercase tracking-widest text-stone-700 outline-none px-2 py-2"
+                        >
+                          <option value="all">Semua Status</option>
+                          <option value="unresolved">Unresolved</option>
+                          <option value="acknowledged">Acknowledged</option>
+                          <option value="fixed">Fixed</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-6 bg-stone-50/50 border-b border-stone-100">
+                    <div className="bg-white rounded-2xl p-4 border border-stone-100 text-center">
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Total</p>
+                      <p className="text-2xl font-display font-black text-stone-900">{errorLogStats.total}</p>
+                    </div>
+                    <div className="bg-red-50 rounded-2xl p-4 border border-red-100 text-center">
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Critical</p>
+                      <p className="text-2xl font-display font-black text-red-600">{errorLogStats.CRITICAL}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 text-center">
+                      <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1">Error</p>
+                      <p className="text-2xl font-display font-black text-orange-600">{errorLogStats.ERROR}</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 text-center">
+                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Warning</p>
+                      <p className="text-2xl font-display font-black text-amber-600">{errorLogStats.WARNING}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 text-center">
+                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Unresolved</p>
+                      <p className="text-2xl font-display font-black text-blue-600">{errorLogStats.unresolved}</p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    {filteredErrorLogs.length === 0 ? (
+                      <div className="p-16 text-center text-stone-500">
+                        <Bug size={48} className="mx-auto mb-4 text-stone-300" />
+                        <p className="text-xl font-bold mb-2">Tidak ada error logs</p>
+                        <p className="text-sm text-stone-400">Belum ada error yang tercatat atau filter tidak menghasilkan data.</p>
+                      </div>
+                    ) : (
+                      <table className="w-full text-left">
+                        <thead className="bg-stone-50/80 border-b border-stone-100">
+                          <tr>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Severity</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Type</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Message</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Context</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Function</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Count</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-stone-400 uppercase tracking-widest text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-50">
+                          {filteredErrorLogs.map((log: any) => (
+                            <tr key={log.id} className="hover:bg-stone-50/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                  log.severity === 'CRITICAL' ? 'bg-red-100 text-red-600 border-red-200' :
+                                  log.severity === 'ERROR' ? 'bg-orange-100 text-orange-600 border-orange-200' :
+                                  log.severity === 'WARNING' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                                  'bg-blue-100 text-blue-600 border-blue-200'
+                                }`}>
+                                  {log.severity}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-bold text-stone-700 font-mono">{log.type}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-xs font-semibold text-stone-800 max-w-xs truncate" title={log.message}>{log.message}</p>
+                                {log.metadata?.errorMessage && (
+                                  <p className="text-[10px] text-stone-400 mt-1 truncate max-w-xs" title={log.metadata.errorMessage}>{log.metadata.errorMessage}</p>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-medium text-stone-500">{log.context}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-mono text-stone-500">{log.functionName}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-black text-stone-800">{log.count || 1}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                  log.status === 'fixed' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' :
+                                  log.status === 'acknowledged' ? 'bg-blue-100 text-blue-600 border-blue-200' :
+                                  'bg-red-100 text-red-600 border-red-200'
+                                }`}>
+                                  {log.status || 'unresolved'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {log.status !== 'acknowledged' && (
+                                    <button
+                                      onClick={() => handleUpdateErrorLogStatus(log.id, 'acknowledged')}
+                                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100 transition-all"
+                                    >
+                                      Ack
+                                    </button>
+                                  )}
+                                  {log.status !== 'fixed' && (
+                                    <button
+                                      onClick={() => handleUpdateErrorLogStatus(log.id, 'fixed')}
+                                      className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 hover:bg-emerald-100 transition-all"
+                                    >
+                                      Fix
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
