@@ -66,7 +66,6 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signOut,
-  signInAnonymously,
   User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -4901,32 +4900,10 @@ export default function App() {
   };
 
   const handleAdminLogin = async (u: string, p: string) => {
-    if (u !== (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') || p !== (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
+    if (u === (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') && p === (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
+      setState('admin_dashboard');
+    } else {
       alert('Username atau password salah!');
-      return;
-    }
-
-    try {
-      const currentAuthUser = auth.currentUser;
-
-      if (currentAuthUser?.isAnonymous) {
-        setState('admin_dashboard');
-        return;
-      }
-
-      if (currentAuthUser) {
-        await signOut(auth);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      await signInAnonymously(auth);
-    } catch (error: any) {
-      console.error("Admin login failed:", error?.code, error?.message);
-      if (error?.code === 'auth/operation-not-allowed') {
-        alert('Login admin gagal: Anonymous Auth belum di-enable di Firebase Console. Buka Authentication → Sign-in method → enable Anonymous.');
-      } else {
-        alert("Gagal login admin. Error: " + (error?.code || error?.message || 'Unknown'));
-      }
     }
   };
 
@@ -4971,11 +4948,6 @@ export default function App() {
             let updatedData = { ...data };
             let hasChanges = false;
 
-            if (currentUser.isAnonymous && data.role !== 'admin') {
-              updatedData.role = 'admin';
-              hasChanges = true;
-            }
-
             if (!data.qrToken) {
               updatedData.qrToken = Math.random().toString(36).substr(2, 9);
               hasChanges = true;
@@ -4987,9 +4959,9 @@ export default function App() {
 
             setUserData({
               ...updatedData,
-              email: currentUser.email || updatedData.email || (currentUser.isAnonymous ? 'admin@neurocycle.id' : ''),
+              email: currentUser.email || updatedData.email || '',
               uid: currentUser.uid,
-              displayName: currentUser.displayName || updatedData.displayName || (currentUser.isAnonymous ? 'Administrator' : 'User'),
+              displayName: currentUser.displayName || updatedData.displayName || currentUser.email?.split('@')[0] || 'User',
               notifications: updatedData.notifications || []
             });
 
@@ -5005,33 +4977,22 @@ export default function App() {
 
             // Jika user berhasil login dari halaman login, tunjukkan welcome screen dulu.
             // Tapi jangan redirect jika sedang di admin_dashboard
-            const isAnonymous = currentUser.isAnonymous;
-            setState(prev => {
-              if (prev === 'admin_dashboard') return 'admin_dashboard';
-              if (isAnonymous) return 'admin_dashboard';
-              if (prev === 'login') return 'welcome';
-              return prev;
-            });
+            setState(prev => (prev === 'admin_dashboard' ? 'admin_dashboard' : prev === 'login' ? 'welcome' : prev));
           } else {
             // New User Initialization
             const initialData: UserData = {
               ...userData,
               uid: currentUser.uid,
-              email: currentUser.email || (currentUser.isAnonymous ? 'admin@neurocycle.id' : ''),
-              displayName: currentUser.displayName || (currentUser.isAnonymous ? 'Administrator' : currentUser.email?.split('@')[0] || 'User'),
-              role: currentUser.isAnonymous ? 'admin' : 'user',
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+              role: 'user',
               qrToken: Math.random().toString(36).substr(2, 9),
               isBanned: false,
               notifications: []
             };
             await setDoc(userRef, initialData);
             setUserData(initialData);
-            const isAnonymousNew = currentUser.isAnonymous;
-            setState(prev => {
-              if (prev === 'admin_dashboard') return 'admin_dashboard';
-              if (isAnonymousNew) return 'admin_dashboard';
-              return 'welcome';
-            });
+            setState(prev => prev === 'admin_dashboard' ? 'admin_dashboard' : 'welcome');
           }
           // Selesaikan inisialisasi hanya setelah data Firestore tersedia
           setIsInitializing(false);
