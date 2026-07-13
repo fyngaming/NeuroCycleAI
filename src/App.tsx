@@ -4901,15 +4901,32 @@ export default function App() {
   };
 
   const handleAdminLogin = async (u: string, p: string) => {
-    if (u === (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') && p === (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
-      try {
-        await signInAnonymously(auth);
-      } catch (error: any) {
-        console.error("Admin login failed:", error?.code, error?.message);
+    if (u !== (import.meta.env.VITE_ADMIN_USER || 'adminNeuroCycle') || p !== (import.meta.env.VITE_ADMIN_PASS || 'DaurUlangSampahmu')) {
+      alert('Username atau password salah!');
+      return;
+    }
+
+    try {
+      const currentAuthUser = auth.currentUser;
+
+      if (currentAuthUser?.isAnonymous) {
+        setState('admin_dashboard');
+        return;
+      }
+
+      if (currentAuthUser) {
+        await signOut(auth);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      await signInAnonymously(auth);
+    } catch (error: any) {
+      console.error("Admin login failed:", error?.code, error?.message);
+      if (error?.code === 'auth/operation-not-allowed') {
+        alert('Login admin gagal: Anonymous Auth belum di-enable di Firebase Console. Buka Authentication → Sign-in method → enable Anonymous.');
+      } else {
         alert("Gagal login admin. Error: " + (error?.code || error?.message || 'Unknown'));
       }
-    } else {
-      alert('Username atau password salah!');
     }
   };
 
