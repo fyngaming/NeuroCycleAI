@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizePhotoUrl } from '../lib/photoUrl';
+import { logError } from '../lib/errorLogger';
 
 const uploadToImgBB = async (file: Blob | File): Promise<string> => {
   const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
@@ -177,6 +178,15 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
         items: finalItems, totalWeight: finalTotalWeight, totalPoints: finalTotalPoints
       });
     } catch (e: any) {
+      await logError({
+        severity: 'ERROR',
+        type: 'partner_transaction_submit_failed',
+        message: e?.message || 'Gagal mengirim setoran partner',
+        context: 'partner_transaction_submit',
+        functionName: 'submit',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { category, weight: finalTotalWeight, points: finalTotalPoints, partnerUid, userToken: trimmedToken }
+      });
       alert('Gagal: ' + e.message);
     } finally {
       isSubmittingRef.current = false;

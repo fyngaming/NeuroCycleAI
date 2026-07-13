@@ -2222,8 +2222,16 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
       // Update local state (Admin side)
       setUsers(prev => prev.map(u => u.uid === userUid ? { ...u, ...updatedData } : u));
-    } catch (error) {
-      console.error("Error performing admin action:", error);
+    } catch (error: any) {
+      await logError({
+        severity: 'ERROR',
+        type: 'admin_action_failed',
+        message: error?.message || 'Gagal melakukan aksi admin',
+        context: 'admin_dashboard',
+        functionName: 'handleAction',
+        stack: error instanceof Error ? error.stack : undefined,
+        metadata: { userUid, actionType: type, itemId }
+      });
       alert("Gagal melakukan aksi.");
     }
   };
@@ -2252,7 +2260,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
       alert('Partner berhasil disetujui!');
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'approve_partner_failed',
+        message: e?.message || 'Gagal menyetujui pendaftaran partner',
+        context: 'partner_management',
+        functionName: 'handleApprovePartner',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { partnerId, ownerUid, name }
+      });
       alert('Gagal menyetujui partner: ' + e.message);
     }
   };
@@ -2282,7 +2298,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
       alert('Partner berhasil ditolak.');
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'reject_partner_failed',
+        message: e?.message || 'Gagal menolak pendaftaran partner',
+        context: 'partner_management',
+        functionName: 'handleRejectPartner',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { partnerId, ownerUid, name, reason }
+      });
       alert('Gagal menolak partner: ' + e.message);
     }
   };
@@ -2299,7 +2323,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       await updateDoc(partnerRef, { status: newStatus });
       alert(`Partner berhasil ${isSuspending ? 'di-suspend' : 'diaktifkan kembali'}.`);
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'toggle_partner_status_failed',
+        message: e?.message || `Gagal ${actionText} partner`,
+        context: 'partner_management',
+        functionName: 'handleToggleSuspendPartner',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { partnerId, currentStatus, name }
+      });
       alert(`Gagal ${actionText} partner: ` + e.message);
     }
   };
@@ -2372,7 +2404,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
       alert('Transaksi flagged berhasil disetujui dan poin dikirim!');
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'approve_flagged_transaction_failed',
+        message: e?.message || 'Gagal menyetujui transaksi flagged',
+        context: 'admin_transaction_review',
+        functionName: 'handleApproveFlagged',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { txId, userToken, category, weight, partnerUid }
+      });
       alert('Gagal menyetujui transaksi: ' + e.message);
     }
   };
@@ -2437,7 +2477,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
       alert('Transaksi flagged berhasil ditolak.');
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'reject_flagged_transaction_failed',
+        message: e?.message || 'Gagal menolak transaksi flagged',
+        context: 'admin_transaction_review',
+        functionName: 'handleRejectFlagged',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { txId, userToken, category, weight, partnerUid, reason }
+      });
       alert('Gagal menolak transaksi: ' + e.message);
     }
   };
@@ -5265,23 +5313,33 @@ export default function App() {
       claimHistory: [newClaim, ...(userData.claimHistory || [])]
     };
 
-    await saveUserData(updatedData);
+    try {
+      await saveUserData(updatedData);
+    } catch (e: any) {
+      await logError({
+        severity: 'ERROR',
+        type: 'claim_reward_failed',
+        message: e?.message || 'Gagal mengajukan klaim hadiah',
+        context: 'claim_reward',
+        userId: user?.uid || userData.uid,
+        userEmail: userData.email || user?.email,
+        functionName: 'handleClaimReward',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { rewardTitle: offer.title, points: offer.points }
+      });
+      alert('Gagal mengajukan klaim: ' + e.message);
+      return;
+    }
 
-    // Buka Instagram DM langsung ke admin dengan pesan otomatis
     const adminIG = 'neurocycle.id';
     const dmMessage = encodeURIComponent(
       `Halo Admin NeuroCycle! 👋\n\nSaya ingin menukarkan poin saya:\n\n🎁 Hadiah: ${offer.title}\n💰 Poin: ${offer.points} NP\n🆔 ID Klaim: ${newClaim.id}\n📧 Email: ${userData.email}\n\nMohon konfirmasi dan instruksi selanjutnya. Terima kasih!`
     );
-
-    // Instagram DM direct link (mobile: buka app, desktop: buka web)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const instagramUrl = isMobile
       ? `instagram://user?username=${adminIG}`
       : `https://ig.me/m/${adminIG}`;
-
     window.open(instagramUrl, '_blank');
-
-    // Fallback: salin pesan ke clipboard
     const plainMessage = `Halo Admin NeuroCycle! Saya ingin menukarkan poin saya. Hadiah: ${offer.title} | Poin: ${offer.points} NP | ID Klaim: ${newClaim.id} | Email: ${userData.email}. Mohon konfirmasi. Terima kasih!`;
     navigator.clipboard.writeText(plainMessage).then(() => {
       alert(`✅ Klaim berhasil diajukan!\n\nPesan sudah disalin ke clipboard.\nInstagram DM admin sudah terbuka — paste pesan tersebut untuk konfirmasi klaim kamu.\n\nID Klaim: ${newClaim.id}`);

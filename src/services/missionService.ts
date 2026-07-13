@@ -3,6 +3,7 @@ import {
   query, where, onSnapshot, addDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { logError } from '../lib/errorLogger';
 import type { Mission, MissionProgress, MissionProof, Article } from '../types';
 
 // ─── Missions ────────────────────────────────────────────────────
@@ -231,12 +232,25 @@ export const getAllArticles = (callback: (articles: Article[]) => void) => {
 
 export const uploadArticle = async (article: Omit<Article, 'id'>): Promise<string> => {
   const articleRef = doc(collection(db, 'articles'));
-  await setDoc(articleRef, {
-    ...article,
-    id: articleRef.id,
-    createdAt: new Date().toISOString(),
-  });
-  return articleRef.id;
+  try {
+    await setDoc(articleRef, {
+      ...article,
+      id: articleRef.id,
+      createdAt: new Date().toISOString(),
+    });
+    return articleRef.id;
+  } catch (e: any) {
+    await logError({
+      severity: 'ERROR',
+      type: 'upload_article_failed',
+      message: e?.message || 'Gagal mengunggah artikel',
+      context: 'article_management',
+      functionName: 'uploadArticle',
+      stack: e instanceof Error ? e.stack : undefined,
+      metadata: { title: article.title }
+    });
+    throw e;
+  }
 };
 
 // ─── Photo Proof Approval ────────────────────────────────────────
@@ -249,29 +263,42 @@ export const approvePhotoProof = async (
   pendingImage: string,
   userNotifications: any[]
 ) => {
-  const newCurrent = Math.min(currentProgress + 1, target);
-  const completed = newCurrent >= target;
-  const newProofImages = [pendingImage];
+  try {
+    const newCurrent = Math.min(currentProgress + 1, target);
+    const completed = newCurrent >= target;
+    const newProofImages = [pendingImage];
 
-  await setDoc(doc(db, 'missionProgress', `${userId}_${missionId}`), {
-    current: newCurrent,
-    completed,
-    proofStatus: 'approved',
-    pendingProofImage: null,
-    proofImages: newProofImages,
-  }, { merge: true });
+    await setDoc(doc(db, 'missionProgress', `${userId}_${missionId}`), {
+      current: newCurrent,
+      completed,
+      proofStatus: 'approved',
+      pendingProofImage: null,
+      proofImages: newProofImages,
+    }, { merge: true });
 
-  const newNotif = {
-    id: Math.random().toString(36).substr(2, 9),
-    title: 'Bukti Foto Disetujui! ✅',
-    message: 'Foto bukti misimu telah diverifikasi oleh Admin. Progress misi bertambah!',
-    date: new Date().toLocaleString('id-ID'),
-    type: 'success',
-    isRead: false,
-  };
-  await setDoc(doc(db, 'users', userId), {
-    notifications: [newNotif, ...userNotifications],
-  }, { merge: true });
+    const newNotif = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: 'Bukti Foto Disetujui! ✅',
+      message: 'Foto bukti misimu telah diverifikasi oleh Admin. Progress misi bertambah!',
+      date: new Date().toLocaleString('id-ID'),
+      type: 'success',
+      isRead: false,
+    };
+    await setDoc(doc(db, 'users', userId), {
+      notifications: [newNotif, ...userNotifications],
+    }, { merge: true });
+  } catch (e: any) {
+    await logError({
+      severity: 'ERROR',
+      type: 'approve_photo_proof_failed',
+      message: e?.message || 'Gagal menyetujui bukti foto misi',
+      context: 'mission_proof_review',
+      functionName: 'approvePhotoProof',
+      stack: e instanceof Error ? e.stack : undefined,
+      metadata: { userId, missionId, currentProgress, target }
+    });
+    throw e;
+  }
 };
 
 export const rejectPhotoProof = async (
@@ -279,22 +306,35 @@ export const rejectPhotoProof = async (
   missionId: string,
   userNotifications: any[]
 ) => {
-  await setDoc(doc(db, 'missionProgress', `${userId}_${missionId}`), {
-    proofStatus: 'rejected',
-    pendingProofImage: null,
-  }, { merge: true });
+  try {
+    await setDoc(doc(db, 'missionProgress', `${userId}_${missionId}`), {
+      proofStatus: 'rejected',
+      pendingProofImage: null,
+    }, { merge: true });
 
-  const newNotif = {
-    id: Math.random().toString(36).substr(2, 9),
-    title: 'Bukti Foto Ditolak ⚠️',
-    message: 'Foto bukti misimu ditolak oleh Admin. Silakan upload ulang foto yang sesuai.',
-    date: new Date().toLocaleString('id-ID'),
-    type: 'warning',
-    isRead: false,
-  };
-  await setDoc(doc(db, 'users', userId), {
-    notifications: [newNotif, ...userNotifications],
-  }, { merge: true });
+    const newNotif = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: 'Bukti Foto Ditolak ⚠️',
+      message: 'Foto bukti misimu ditolak oleh Admin. Silakan upload ulang foto yang sesuai.',
+      date: new Date().toLocaleString('id-ID'),
+      type: 'warning',
+      isRead: false,
+    };
+    await setDoc(doc(db, 'users', userId), {
+      notifications: [newNotif, ...userNotifications],
+    }, { merge: true });
+  } catch (e: any) {
+    await logError({
+      severity: 'ERROR',
+      type: 'reject_photo_proof_failed',
+      message: e?.message || 'Gagal menolak bukti foto misi',
+      context: 'mission_proof_review',
+      functionName: 'rejectPhotoProof',
+      stack: e instanceof Error ? e.stack : undefined,
+      metadata: { userId, missionId }
+    });
+    throw e;
+  }
 };
 
 export const toggleArticlePublish = async (articleId: string, isPublished: boolean) => {

@@ -10,6 +10,7 @@ import {
   claimMissionReward, syncMissionStatuses, updateMissionProgress,
   getAllUserMissionProgress,
 } from '../services/missionService';
+import { logError } from '../lib/errorLogger';
 import type { Mission, MissionProgress } from '../types';
 
 // ─── Countdown Timer Hook ─────────────────────────────────────────
@@ -164,7 +165,16 @@ export const ProofUpload: React.FC<ProofUploadProps> = ({
       });
       onSubmitted(progress.current, false);
     } catch (err) {
-      console.error('Submit proof error:', err);
+      await logError({
+        severity: 'ERROR',
+        type: 'mission_proof_upload_failed',
+        message: err instanceof Error ? err.message : 'Gagal mengunggah bukti foto misi',
+        context: 'mission_proof_upload',
+        userId,
+        functionName: 'handleSubmit',
+        stack: err instanceof Error ? err.stack : undefined,
+        metadata: { missionId: mission.id, missionTitle: mission.title }
+      });
       alert('Gagal menyimpan. Coba lagi.');
     } finally {
       setUploading(false);

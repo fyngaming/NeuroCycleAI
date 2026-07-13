@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizePhotoUrl } from '../lib/photoUrl';
+import { logError } from '../lib/errorLogger';
 
 const uploadToImgBB = async (file: File): Promise<string> => {
   const formData = new FormData();
@@ -166,7 +167,15 @@ const UserDepositSubmit = ({ onClose, currentUserQr, userUid, userData }: { onCl
         });
       }
     } catch (e: any) {
-      console.error(e);
+      await logError({
+        severity: 'ERROR',
+        type: 'user_deposit_submit_failed',
+        message: e?.message || 'Gagal mengirim pengajuan setoran',
+        context: 'user_deposit_submit',
+        functionName: 'submit',
+        stack: e instanceof Error ? e.stack : undefined,
+        metadata: { category, weight, photo: photo?.name }
+      });
       alert('Gagal mengirim pengajuan: ' + e.message);
     } finally {
       setSubmitting(false);
