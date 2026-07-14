@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizePhotoUrl } from '../lib/photoUrl';
+import PartnerTransactionSubmit from './PartnerTransactionSubmit';
 
 const uploadToImgBB = async (blob: Blob): Promise<string> => {
   const formData = new FormData();
@@ -15,7 +16,7 @@ const uploadToImgBB = async (blob: Blob): Promise<string> => {
   if (!json.success || !json.data?.url) throw new Error('ImgBB upload gagal');
   return normalizePhotoUrl(json.data.url);
 };
-import { WifiOff, RefreshCw, Loader2, Award, Clock, ShieldAlert, Check, AlertTriangle, X } from 'lucide-react';
+import { WifiOff, RefreshCw, Loader2, Award, Clock, ShieldAlert, Check, AlertTriangle, X, Plus } from 'lucide-react';
 
 const WASTE_CATEGORIES = [
   { id: 'plastik', name: 'Plastik', pointsPerKg: 1000 },
@@ -63,6 +64,7 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
     totalPoints: number;
   } | null>(null);
   const [approvingTxId, setApprovingTxId] = useState<string | null>(null);
+  const [showAddTx, setShowAddTx] = useState(false);
 
   useEffect(() => {
     if (!uid) return;
@@ -547,6 +549,18 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
               </div>
             </div>
 
+            {partner?.status === 'approved' && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowAddTx(true)}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2"
+                >
+                  <Plus size={20} />
+                  Tambah Setoran
+                </button>
+              </div>
+            )}
+
             {/* Offline Transactions Sync Bar */}
             {offlineTxsList.length > 0 && (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-center justify-between">
@@ -664,6 +678,15 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
           </div>
         )}
       </div>
+
+      {/* Add Transaction Modal */}
+      {showAddTx && (
+        <PartnerTransactionSubmit
+          partnerUid={uid}
+          onClose={() => setShowAddTx(false)}
+          onDone={() => setShowAddTx(false)}
+        />
+      )}
     </div>
   );
 };
