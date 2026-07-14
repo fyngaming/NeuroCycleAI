@@ -5259,7 +5259,7 @@ export default function App() {
         message: errorMsg,
         context: 'waste_scan',
         userId: user?.uid || userData.uid,
-        userEmail: user?.email || userData.email,
+        userEmail: user?.email || userData.email || '',
         functionName: 'handleImageInput',
         stack: err instanceof Error ? err.stack : undefined,
         metadata: { fileName: (e.target.files?.[0])?.name }
@@ -5322,7 +5322,7 @@ export default function App() {
         message: e?.message || 'Gagal mengajukan klaim hadiah',
         context: 'claim_reward',
         userId: user?.uid || userData.uid,
-        userEmail: userData.email || user?.email,
+        userEmail: userData.email || user?.email || '',
         functionName: 'handleClaimReward',
         stack: e instanceof Error ? e.stack : undefined,
         metadata: { rewardTitle: offer.title, points: offer.points }
