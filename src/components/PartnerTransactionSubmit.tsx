@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs, doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizePhotoUrl } from '../lib/photoUrl';
 import { logError } from '../lib/errorLogger';
@@ -134,14 +134,10 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
     isSubmittingRef.current = true;
     setSubmitting(true);
     
-    // Use category/weight if itemsList empty (auto-add)
+    const trimmedToken = userToken.trim().replace(/^user:/i, '');
     const finalItems: DepositItem[] = itemsList.length === 0 && weight > 0
       ? [{ category: category, name: WASTE_CATEGORIES.find(c => c.id === category)?.name || category, weight, points: weight * (WASTE_CATEGORIES.find(c => c.id === category)?.pointsPerKg || 1000) }]
       : itemsList.map(i => ({ category: i.categoryId, name: i.categoryName, weight: i.weight, points: i.points }));
-    
-    const trimmedToken = userToken.trim().replace(/^user:/i, '');
-    const txId = doc(collection(db, 'transactions')).id;
-    const txDocRef = doc(db, 'transactions', txId);
     const finalTotalWeight = finalItems.reduce((s, i) => s + i.weight, 0);
     const finalTotalPoints = finalItems.reduce((s, i) => s + i.points, 0);
     const isUnapproved = partnerStatus !== 'approved';
@@ -154,16 +150,46 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
             if (snap.empty) throw new Error('User tidak ditemukan');
             return { uid: snap.docs[0].id, data: snap.docs[0].data() };
           });
+
       const [resolvedUser, photoUrl] = await Promise.all([userPromise, compressImage(photo).then(f => uploadToImgBB(f))]);
-      
-      await setDoc(txDocRef, {
-        partnerUid: partnerUid || 'unverified',
-        partnerName: partnerName || (isUnapproved ? 'Bank Sampah Belum Terdaftar' : 'Bank Sampah'),
-        userUid: resolvedUser.uid, userToken: trimmedToken,
-        category: category, weight: finalTotalWeight, items: finalItems,
-        totalWeight: finalTotalWeight, totalPoints: finalTotalPoints, photoUrl,
-        status: txStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-      });
+
+      const existingTxSnap = await getDocs(query(
+        collection(db, 'transactions'),
+        where('partnerUid', '==', partnerUid || 'unverified'),
+        where('userToken', '==', trimmedToken),
+        where('status', '==', txStatus)
+      ));
+
+      let txId: string;
+      let isUpdate = false;
+
+      if (!existingTxSnap.empty) {
+        txId = existingTxSnap.docs[0].id;
+        isUpdate = true;
+        const existing = existingTxSnap.docs[0].data();
+        const mergedItems = [...(existing.items || []), ...finalItems];
+        const mergedWeight = (existing.totalWeight || existing.weight || 0) + finalTotalWeight;
+        const mergedPoints = (existing.totalPoints || 0) + finalTotalPoints;
+        await updateDoc(doc(db, 'transactions', txId), {
+          items: mergedItems,
+          totalWeight: mergedWeight,
+          totalPoints: mergedPoints,
+          weight: mergedWeight,
+          photoUrl: photoUrl || existing.photoUrl,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        txId = doc(collection(db, 'transactions')).id;
+        const txDocRef = doc(db, 'transactions', txId);
+        await setDoc(txDocRef, {
+          partnerUid: partnerUid || 'unverified',
+          partnerName: partnerName || (isUnapproved ? 'Bank Sampah Belum Terdaftar' : 'Bank Sampah'),
+          userUid: resolvedUser.uid, userToken: trimmedToken,
+          category: category, weight: finalTotalWeight, items: finalItems,
+          totalWeight: finalTotalWeight, totalPoints: finalTotalPoints, photoUrl,
+          status: txStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+        });
+      }
 
       if (isUnapproved) {
         await setDoc(doc(db, 'adminReviews', txId), { txId, reason: 'Partner belum terdaftar', status: 'pending', createdAt: new Date().toISOString() });
@@ -171,9 +197,11 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
 
       setSuccessInfo({
         title: isUnapproved ? 'Menunggu Review Admin' : 'Setoran Dicatat',
-        message: isUnapproved 
-          ? 'Bank sampah belum terdaftar. Setoran menunggu verifikasi admin.'
-          : `Setoran berhasil diajukan. Total: ${finalTotalWeight} kg • ${finalTotalPoints.toLocaleString()} NP.`,
+        message: isUpdate
+          ? `Setoran digabung ke transaksi yang sudah ada. Total: ${finalTotalWeight} kg • ${finalTotalPoints.toLocaleString()} NP.`
+          : isUnapproved 
+            ? 'Bank sampah belum terdaftar. Setoran menunggu verifikasi admin.'
+            : `Setoran berhasil diajukan. Total: ${finalTotalWeight} kg • ${finalTotalPoints.toLocaleString()} NP.`,
         bankName: partnerName || 'Bank Sampah',
         items: finalItems, totalWeight: finalTotalWeight, totalPoints: finalTotalPoints
       });
