@@ -1,8 +1,117 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/superAdmins/$(request.auth.uid));
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.firebase.sign_in_provider == 'anonymous' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+    
+    function isPartner() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'partner';
+    }
+    
+    function isOwner(userId: string) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /superAdmins/{adminId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isSuperAdmin());
+      allow create: if isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || isAdmin() || (
+          isOwner(userId) && 
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'level', 'isBanned', 'scanHistory', 'depositHistory', 'claimHistory', 'notifications'])
+        )
+      );
+      allow delete: if isSuperAdmin() || isAdmin();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.ownerUid == request.auth.uid && 
+        request.resource.data.status == 'pending';
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || isAdmin() || (
+          resource.data.ownerUid == request.auth.uid && 
+          request.resource.data.status == 'pending'
+        )
+      );
+      allow delete: if isSuperAdmin() || isAdmin();
+    }
+
+    match /transactions/{txId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() || isAdmin() || (
+          isPartner() && 
+          request.resource.data.partnerUid == request.auth.uid
+        )
+      );
+      allow update, delete: if isSuperAdmin() || isAdmin();
+    }
+
+    match /adminReviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isSuperAdmin() || isAdmin() || isPartner());
+      allow update, delete: if isSuperAdmin() || isAdmin();
+    }
+
+    match /errorLogs/{logId} {
+      allow read: if isSuperAdmin() || isAdmin();
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /missions/{missionId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /articles/{articleId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /missionProgress/{progressId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin() || isAdmin());
+      allow write: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /missionProofs/{proofId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin() || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSuperAdmin() || isAdmin();
+      allow delete: if isSuperAdmin() || isAdmin();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

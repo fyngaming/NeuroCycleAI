@@ -99,7 +99,7 @@ import QuizScreen from './components/QuizScreen';
 type AppState =
   | 'login' | 'welcome' | 'main' | 'scanning' | 'result'
   | 'user_dashboard' | 'redemption' | 'education_list' | 'education_detail'
-  | 'map' | 'about' | 'scan_options' | 'admin_dashboard'
+  | 'map' | 'about' | 'scan_options' | 'admin_dashboard' | 'super_admin_dashboard'
   | 'waste_bank_list' | 'waste_bank_calculate' | 'waste_bank_verify'
   | 'daily_missions'
   | 'quiz';
@@ -1872,11 +1872,14 @@ const NotificationModal = ({
   );
 };
 
-const LoginScreen = ({ onGoogleLogin, onAdminLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void }) => {
+const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
+  const [showSuperAdminForm, setShowSuperAdminForm] = useState(false);
+  const [superEmail, setSuperEmail] = useState('');
+  const [superPassword, setSuperPassword] = useState('');
 
   return (
     <motion.div
@@ -1966,6 +1969,71 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin }: { onGoogleLogin: () => voi
                 className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
               >
                 Masuk sebagai Admin
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toggle Super Admin */}
+        <button
+          onClick={() => setShowSuperAdminForm(!showSuperAdminForm)}
+          className="w-full flex items-center gap-4 mb-6 group"
+        >
+          <div className="flex-1 h-px bg-stone-700" />
+          <span className="text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors flex items-center gap-1.5">
+            Atau Super Admin
+            <motion.span
+              animate={{ rotate: showSuperAdminForm ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="inline-block"
+            >
+              ▾
+            </motion.span>
+          </span>
+          <div className="flex-1 h-px bg-stone-700" />
+        </button>
+
+        {/* Super Admin Form */}
+        <AnimatePresence>
+          {showSuperAdminForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              className="w-full overflow-hidden"
+            >
+              <div className="space-y-4 mb-4">
+                <input
+                  type="email"
+                  placeholder="Super Admin Email"
+                  value={superEmail}
+                  onChange={(e) => setSuperEmail(e.target.value)}
+                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
+                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Super Admin Password"
+                    value={superPassword}
+                    onChange={(e) => setSuperPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && onSuperAdminLogin(superEmail, superPassword)}
+                    className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => onSuperAdminLogin(superEmail, superPassword)}
+                className="w-full bg-amber-600 text-white font-bold py-4 rounded-2xl hover:bg-amber-700 shadow-lg shadow-amber-900/20 active:scale-95 transition-all"
+              >
+                Masuk sebagai Super Admin
               </button>
             </motion.div>
           )}
@@ -4778,6 +4846,192 @@ const ReadingTimer = ({
   );
 };
 
+const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
+  const [activeTab, setActiveTab] = useState<'institutions' | 'partners' | 'users' | 'error_logs'>('institutions');
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [partners, setPartners] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [errorLogs, setErrorLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub1 = onSnapshot(collection(db, 'partners'), (snap) => {
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsub2 = onSnapshot(collection(db, 'users'), (snap) => {
+      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsub3 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+      setErrorLogs(logs);
+    });
+    setLoading(false);
+    return () => { unsub1(); unsub2(); unsub3(); };
+  }, []);
+
+  const stats = useMemo(() => ({
+    totalPartners: partners.length,
+    totalUsers: users.length,
+    totalErrors: errorLogs.length,
+    approvedPartners: partners.filter((p: any) => p.status === 'approved').length,
+    pendingPartners: partners.filter((p: any) => p.status === 'pending').length,
+  }), [partners, users, errorLogs]);
+
+  return (
+    <div className="min-h-screen bg-stone-50">
+      <div className="bg-stone-900 text-white px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-display font-black">Super Admin Dashboard</h1>
+          <p className="text-stone-400 text-xs">Kelola seluruh platform NeuroCycle</p>
+        </div>
+        <button onClick={onLogout} className="px-4 py-2 bg-red-600 rounded-xl text-xs font-bold hover:bg-red-700">Logout</button>
+      </div>
+
+      <div className="p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Total Partners</p>
+            <p className="text-2xl font-black text-stone-900">{stats.totalPartners}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Total Users</p>
+            <p className="text-2xl font-black text-stone-900">{stats.totalUsers}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Approved Partners</p>
+            <p className="text-2xl font-black text-emerald-600">{stats.approvedPartners}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Error Logs</p>
+            <p className="text-2xl font-black text-red-600">{stats.totalErrors}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {[
+            { id: 'institutions', label: 'Institutions' },
+            { id: 'partners', label: 'Partners' },
+            { id: 'users', label: 'Users' },
+            { id: 'error_logs', label: 'Error Logs' },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap ${activeTab === tab.id ? 'bg-stone-900 text-white' : 'bg-white text-stone-600 border border-stone-200'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'partners' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Daftar Partner</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Owner UID</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {partners.map((p: any) => (
+                    <tr key={p.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{p.name}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{p.email}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          p.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          p.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          p.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{p.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{p.ownerUid}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Daftar Users</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Points</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {users.map((u: any) => (
+                    <tr key={u.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{u.displayName || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
+                      <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'error_logs' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Error Logs</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Severity</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Type</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Message</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Context</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {errorLogs.map((log: any) => (
+                    <tr key={log.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          log.severity === 'CRITICAL' ? 'bg-red-100 text-red-600 border-red-200' :
+                          log.severity === 'ERROR' ? 'bg-orange-100 text-orange-600 border-orange-200' :
+                          log.severity === 'WARNING' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                          'bg-blue-100 text-blue-600 border-blue-200'
+                        }`}>{log.severity}</span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-stone-700 font-mono">{log.type}</td>
+                      <td className="px-6 py-4 text-xs text-stone-600 max-w-xs truncate">{log.message}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{log.context}</td>
+                      <td className="px-6 py-4 text-xs font-black text-stone-800">{log.count || 1}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
 
   const [state, setState] = useState<AppState>('login');
@@ -4957,6 +5211,18 @@ export default function App() {
     }
 
     setState('admin_dashboard');
+  };
+
+  const handleSuperAdminLogin = async (email: string, password: string) => {
+    const superAdminEmail = import.meta.env.VITE_SUPER_ADMIN_EMAIL || 'superadmin@neurocycle.id';
+    const superAdminPass = import.meta.env.VITE_SUPER_ADMIN_PASS || 'SuperAdmin123!';
+
+    if (email !== superAdminEmail || password !== superAdminPass) {
+      alert('Email atau password super admin salah!');
+      return;
+    }
+
+    setState('super_admin_dashboard');
   };
 
   const handleLogout = async () => {
@@ -5366,6 +5632,7 @@ export default function App() {
           <LoginScreen
             onGoogleLogin={handleGoogleLogin}
             onAdminLogin={handleAdminLogin}
+            onSuperAdminLogin={handleSuperAdminLogin}
           />
         )}
         {state === 'admin_dashboard' && (
@@ -5373,6 +5640,17 @@ export default function App() {
             <AdminDashboard
               onLogout={async () => {
                 if (window.confirm("Apakah anda yakin ingin logout dari panel Admin?")) {
+                  await handleLogout();
+                }
+              }}
+            />
+          </div>
+        )}
+        {state === 'super_admin_dashboard' && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
+            <SuperAdminDashboard
+              onLogout={async () => {
+                if (window.confirm("Apakah anda yakin ingin logout dari panel Super Admin?")) {
                   await handleLogout();
                 }
               }}
