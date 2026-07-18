@@ -6090,7 +6090,7 @@ export default function App() {
     try {
       if (!email || !password || !institutionCode) {
         alert('Semua field harus diisi!');
-        return;
+        return false;
       }
 
       const instQuery = query(collection(db, 'institutions'), where('code', '==', institutionCode.toUpperCase()));
@@ -6098,7 +6098,7 @@ export default function App() {
 
       if (instSnap.empty) {
         alert('Kode institusi tidak ditemukan!');
-        return;
+        return false;
       }
 
       const instDoc = instSnap.docs[0];
@@ -6110,7 +6110,7 @@ export default function App() {
 
       if (!existingSnap.empty) {
         alert('Email sudah terdaftar!');
-        return;
+        return false;
       }
 
       const newUserRef = doc(collection(db, 'users'));
