@@ -80,10 +80,15 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
     if (!uid) return;
     const q = query(collection(db, 'transactions'), where('partnerUid', '==', uid));
     const unsub = onSnapshot(q, (snap) => {
-      setTxs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const allTxs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const partnerInstitutionId = partner?.institutionId;
+      const filtered = partnerInstitutionId
+        ? allTxs.filter((tx: any) => tx.institutionId === partnerInstitutionId || !tx.institutionId)
+        : allTxs;
+      setTxs(filtered.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     });
     return () => unsub();
-  }, [uid]);
+  }, [uid, partner?.institutionId]);
 
   // Load offline transactions on mount
   useEffect(() => {

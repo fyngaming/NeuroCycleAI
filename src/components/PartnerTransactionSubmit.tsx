@@ -151,7 +151,13 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
             return { uid: snap.docs[0].id, data: snap.docs[0].data() };
           });
 
-      const [resolvedUser, photoUrl] = await Promise.all([userPromise, compressImage(photo).then(f => uploadToImgBB(f))]);
+      const partnerPromise = partnerUid
+        ? getDoc(doc(db, 'partners', partnerUid)).then(docSnap => docSnap.exists() ? docSnap.data() : null)
+        : Promise.resolve(null);
+
+      const [resolvedUser, partnerData, photoUrl] = await Promise.all([userPromise, partnerPromise, compressImage(photo).then(f => uploadToImgBB(f))]);
+
+      const partnerInstitutionId = partnerData?.institutionId || null;
 
       const existingTxSnap = await getDocs(query(
         collection(db, 'transactions'),
@@ -177,6 +183,7 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
           weight: mergedWeight,
           photoUrl: photoUrl || existing.photoUrl,
           updatedAt: new Date().toISOString(),
+          institutionId: partnerInstitutionId || existing.institutionId || null,
         });
       } else {
         txId = doc(collection(db, 'transactions')).id;
@@ -187,7 +194,8 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
           userUid: resolvedUser.uid, userToken: trimmedToken,
           category: category, weight: finalTotalWeight, items: finalItems,
           totalWeight: finalTotalWeight, totalPoints: finalTotalPoints, photoUrl,
-          status: txStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+          status: txStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+          institutionId: partnerInstitutionId
         });
       }
 

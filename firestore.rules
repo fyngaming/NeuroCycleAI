@@ -32,7 +32,12 @@ service cloud.firestore {
     function isInstitutionAdmin(institutionId: string) {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'institution_admin' &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.institutionId == institutionId;
+    }
+    
+    function getInstitutionId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.institutionId;
     }
 
     match /superAdmins/{adminId} {
@@ -48,12 +53,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isSuperAdmin() || (
-        isInstitutionAdmin(resource.data.institutionId)
-      ));
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isSuperAdmin() || 
+        isInstitutionAdmin(resource.data.institutionId));
       allow create: if isOwner(userId);
       allow update: if isAuthenticated() && (
-        isSuperAdmin() || isAdmin() || (
+        isSuperAdmin() || isAdmin() || isInstitutionAdmin(resource.data.institutionId) || (
           isOwner(userId) && 
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'level', 'isBanned', 'scanHistory', 'depositHistory', 'claimHistory', 'notifications'])
         )
@@ -62,12 +66,13 @@ service cloud.firestore {
     }
 
     match /partners/{partnerId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isSuperAdmin() || isAdmin() || 
+        isInstitutionAdmin(resource.data.institutionId));
       allow create: if isAuthenticated() && 
         request.resource.data.ownerUid == request.auth.uid && 
         request.resource.data.status == 'pending';
       allow update: if isAuthenticated() && (
-        isSuperAdmin() || isAdmin() || (
+        isSuperAdmin() || isAdmin() || isInstitutionAdmin(resource.data.institutionId) || (
           resource.data.ownerUid == request.auth.uid && 
           request.resource.data.status == 'pending'
         )
@@ -76,14 +81,15 @@ service cloud.firestore {
     }
 
     match /transactions/{txId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isSuperAdmin() || isAdmin() || isPartner() || 
+        isInstitutionAdmin(resource.data.institutionId));
       allow create: if isAuthenticated() && (
         isSuperAdmin() || isAdmin() || (
           isPartner() && 
           request.resource.data.partnerUid == request.auth.uid
         )
       );
-      allow update, delete: if isSuperAdmin() || isAdmin();
+      allow update, delete: if isSuperAdmin() || isAdmin() || isInstitutionAdmin(resource.data.institutionId);
     }
 
     match /adminReviews/{reviewId} {
@@ -93,7 +99,7 @@ service cloud.firestore {
     }
 
     match /errorLogs/{logId} {
-      allow read: if isSuperAdmin() || isAdmin();
+      allow read: if isSuperAdmin() || isAdmin() || isInstitutionAdmin(resource.data.institutionId);
       allow write: if isSuperAdmin() || isAdmin();
     }
 

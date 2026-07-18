@@ -51,6 +51,7 @@ import {
   Activity,
   Bug,
   Filter,
+  Building2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -75,6 +76,7 @@ import {
   updateDoc,
   deleteDoc,
   collection,
+  addDoc,
   onSnapshot,
   query,
   where,
@@ -100,9 +102,9 @@ import QuizScreen from './components/QuizScreen';
 type AppState =
   | 'login' | 'welcome' | 'main' | 'scanning' | 'result'
   | 'user_dashboard' | 'redemption' | 'education_list' | 'education_detail'
-  | 'map' | 'about' | 'scan_options' | 'admin_dashboard' | 'super_admin_dashboard'
+  | 'map' | 'about' | 'scan_options' | 'admin_dashboard' | 'super_admin_dashboard' | 'institution_admin_dashboard'
   | 'waste_bank_list' | 'waste_bank_calculate' | 'waste_bank_verify'
-  | 'daily_missions'
+  | 'daily_missions' | 'institution_setup'
   | 'quiz';
 
 interface NotificationItem {
@@ -156,6 +158,7 @@ interface UserData {
   email: string;
   displayName: string;
   role?: string;
+  institutionId?: string;
   qrToken?: string;
   points: number;
   scans: number;
@@ -1095,6 +1098,198 @@ const LevelTimeline = ({ currentScans, currentDeposits, totalDepositKg }: {
   );
 };
 
+const generateInstitutionCode = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+const InstitutionSetupScreen = ({ onComplete, onSkip }: { onComplete: (institutionId: string) => void, onSkip: () => void }) => {
+  const [mode, setMode] = useState<'select' | 'create' | 'join'>('select');
+  const [institutionName, setInstitutionName] = useState('');
+  const [institutionCode, setInstitutionCode] = useState('');
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleCreateInstitution = async () => {
+    if (!institutionName.trim()) {
+      alert('Nama institusi harus diisi!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const code = generateInstitutionCode();
+      const instRef = await addDoc(collection(db, 'institutions'), {
+        name: institutionName.trim(),
+        code: code,
+        createdAt: new Date().toISOString(),
+        createdBy: auth.currentUser?.uid || ''
+      });
+
+      await updateDoc(doc(db, 'users', auth.currentUser?.uid || ''), {
+        institutionId: instRef.id,
+        role: 'user'
+      });
+
+      onComplete(instRef.id);
+    } catch (e) {
+      console.error('Gagal membuat institusi:', e);
+      alert('Gagal membuat institusi. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoinInstitution = async () => {
+    if (!institutionCode.trim()) {
+      alert('Kode institusi harus diisi!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const instRef = collection(db, 'institutions');
+      const q = query(instRef, where('code', '==', institutionCode.trim().toUpperCase()));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        alert('Kode institusi tidak ditemukan!');
+        setLoading(false);
+        return;
+      }
+
+      const instDoc = snap.docs[0];
+      await updateDoc(doc(db, 'users', auth.currentUser?.uid || ''), {
+        institutionId: instDoc.id,
+        role: 'user'
+      });
+
+      onComplete(instDoc.id);
+    } catch (e) {
+      console.error('Gagal bergabung dengan institusi:', e);
+      alert('Gagal bergabung dengan institusi. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (mode === 'select') {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="min-h-screen bg-stone-900 text-white flex flex-col items-center justify-center p-6"
+      >
+        <div className="w-full max-w-sm">
+          <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl mb-6 mx-auto">
+            <Building2 size={40} className="text-white" />
+          </div>
+          <h1 className="text-3xl font-display font-black text-center mb-3">Pilih Institusi</h1>
+          <p className="text-stone-400 text-center text-sm mb-8">
+            Bergabung dengan institusi untuk mendapatkan fitur lengkap NeuroCycle
+          </p>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => setMode('create')}
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
+            >
+              Buat Institusi Baru
+            </button>
+            <button
+              onClick={() => setMode('join')}
+              className="w-full bg-stone-800 text-white font-bold py-4 rounded-2xl hover:bg-stone-700 border border-stone-700 active:scale-95 transition-all"
+            >
+              Bergabung dengan Kode
+            </button>
+            <button
+              onClick={onSkip}
+              className="w-full text-stone-500 text-sm font-medium py-3 hover:text-stone-300 transition-colors"
+            >
+              Lewati untuk saat ini
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (mode === 'create') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+        className="min-h-screen bg-stone-900 text-white flex flex-col items-center justify-center p-6"
+      >
+        <div className="w-full max-w-sm">
+          <button onClick={() => setMode('select')} className="mb-6 text-stone-400 hover:text-white flex items-center gap-2">
+            <ArrowLeft size={20} />
+            <span className="text-sm font-medium">Kembali</span>
+          </button>
+          <h2 className="text-2xl font-display font-black mb-2">Buat Institusi Baru</h2>
+          <p className="text-stone-400 text-sm mb-6">
+            Buat institusi untuk mengelola partner dan transaksi
+          </p>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Nama Institusi"
+              value={institutionName}
+              onChange={(e) => setInstitutionName(e.target.value)}
+              className="w-full bg-stone-800 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
+            />
+            <button
+              onClick={handleCreateInstitution}
+              disabled={loading}
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all disabled:opacity-50"
+            >
+              {loading ? 'Membuat...' : 'Buat Institusi'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+      className="min-h-screen bg-stone-900 text-white flex flex-col items-center justify-center p-6"
+    >
+      <div className="w-full max-w-sm">
+        <button onClick={() => setMode('select')} className="mb-6 text-stone-400 hover:text-white flex items-center gap-2">
+          <ArrowLeft size={20} />
+          <span className="text-sm font-medium">Kembali</span>
+        </button>
+        <h2 className="text-2xl font-display font-black mb-2">Bergabung dengan Institusi</h2>
+        <p className="text-stone-400 text-sm mb-6">
+          Masukkan kode institusi yang diberikan oleh admin
+        </p>
+
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Kode Institusi"
+            value={institutionCode}
+            onChange={(e) => setInstitutionCode(e.target.value.toUpperCase())}
+            className="w-full bg-stone-800 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700 uppercase tracking-widest text-center text-lg font-mono"
+          />
+          <button
+            onClick={handleJoinInstitution}
+            disabled={loading}
+            className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all disabled:opacity-50"
+          >
+            {loading ? 'Menggabungkan...' : 'Gabung'}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const WelcomeScreen = ({ onStart }: { onStart: () => void }) => {
   const [slide, setSlide] = useState(0);
 
@@ -1873,14 +2068,17 @@ const NotificationModal = ({
   );
 };
 
-const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void }) => {
+const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdminLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void, onInstAdminLogin: (email: string, password: string) => void }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [showSuperAdminForm, setShowSuperAdminForm] = useState(false);
+  const [showInstAdminForm, setShowInstAdminForm] = useState(false);
   const [superEmail, setSuperEmail] = useState('');
   const [superPassword, setSuperPassword] = useState('');
+  const [instEmail, setInstEmail] = useState('');
+  const [instPassword, setInstPassword] = useState('');
 
   return (
     <motion.div
@@ -2035,6 +2233,71 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin }: { onGoo
                 className="w-full bg-amber-600 text-white font-bold py-4 rounded-2xl hover:bg-amber-700 shadow-lg shadow-amber-900/20 active:scale-95 transition-all"
               >
                 Masuk sebagai Super Admin
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toggle Institution Admin */}
+        <button
+          onClick={() => setShowInstAdminForm(!showInstAdminForm)}
+          className="w-full flex items-center gap-4 mb-6 group"
+        >
+          <div className="flex-1 h-px bg-stone-700" />
+          <span className="text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors flex items-center gap-1.5">
+            Atau Institution Admin
+            <motion.span
+              animate={{ rotate: showInstAdminForm ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="inline-block"
+            >
+              ▾
+            </motion.span>
+          </span>
+          <div className="flex-1 h-px bg-stone-700" />
+        </button>
+
+        {/* Institution Admin Form */}
+        <AnimatePresence>
+          {showInstAdminForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              className="w-full overflow-hidden"
+            >
+              <div className="space-y-4 mb-4">
+                <input
+                  type="email"
+                  placeholder="Institution Admin Email"
+                  value={instEmail}
+                  onChange={(e) => setInstEmail(e.target.value)}
+                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
+                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Institution Admin Password"
+                    value={instPassword}
+                    onChange={(e) => setInstPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && onInstAdminLogin(instEmail, instPassword)}
+                    className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => onInstAdminLogin(instEmail, instPassword)}
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+              >
+                Masuk sebagai Institution Admin
               </button>
             </motion.div>
           )}
@@ -4863,6 +5126,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     phone: '',
     address: '',
     adminUid: '',
+    code: '',
     status: 'active',
   });
 
@@ -4896,13 +5160,15 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const handleCreateInstitution = async () => {
     try {
+      const code = institutionForm.code || generateInstitutionCode();
       const instRef = doc(collection(db, 'institutions'));
       await setDoc(instRef, {
         ...institutionForm,
+        code: code.toUpperCase(),
         createdAt: new Date().toISOString(),
       });
       setShowInstitutionForm(false);
-      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', code: '', status: 'active' });
     } catch (e) {
       console.error('Gagal membuat institusi:', e);
       alert('Gagal membuat institusi');
@@ -4913,10 +5179,10 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     if (!editingInstitution) return;
     try {
       const instRef = doc(db, 'institutions', editingInstitution.id);
-      await updateDoc(instRef, institutionForm);
+      await updateDoc(instRef, { ...institutionForm, code: (institutionForm.code || editingInstitution.code || '').toUpperCase() });
       setEditingInstitution(null);
       setShowInstitutionForm(false);
-      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', code: '', status: 'active' });
     } catch (e) {
       console.error('Gagal update institusi:', e);
       alert('Gagal update institusi');
@@ -4942,6 +5208,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       phone: inst.phone || '',
       address: inst.address || '',
       adminUid: inst.adminUid || '',
+      code: inst.code || '',
       status: inst.status || 'active',
     });
     setShowInstitutionForm(true);
@@ -5025,6 +5292,13 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 />
                 <input
                   type="text"
+                  placeholder="Kode Institusi (opsional, akan digenerate otomatis jika kosong)"
+                  value={institutionForm.code}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, code: e.target.value.toUpperCase() })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 font-mono uppercase tracking-widest"
+                />
+                <input
+                  type="text"
                   placeholder="Admin UID (opsional)"
                   value={institutionForm.adminUid}
                   onChange={(e) => setInstitutionForm({ ...institutionForm, adminUid: e.target.value })}
@@ -5051,7 +5325,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                   onClick={() => {
                     setShowInstitutionForm(false);
                     setEditingInstitution(null);
-                    setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+                    setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', code: '', status: 'active' });
                   }}
                   className="px-6 py-4 bg-stone-200 text-stone-700 rounded-2xl font-bold hover:bg-stone-300 transition-all"
                 >
@@ -5078,6 +5352,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                 <thead className="bg-stone-50">
                   <tr>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kode</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Tipe</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
@@ -5089,6 +5364,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                   {institutions.map((inst: any) => (
                     <tr key={inst.id} className="hover:bg-stone-50/50">
                       <td className="px-6 py-4 text-sm font-bold text-stone-800">{inst.name}</td>
+                      <td className="px-6 py-4 text-xs font-mono font-bold text-blue-600">{inst.code || '-'}</td>
                       <td className="px-6 py-4 text-xs text-stone-500 capitalize">{inst.type}</td>
                       <td className="px-6 py-4 text-xs text-stone-500">{inst.email || '-'}</td>
                       <td className="px-6 py-4">
@@ -5203,6 +5479,301 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
                       <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
                       <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'error_logs' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Error Logs</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Severity</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Type</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Message</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Context</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {errorLogs.map((log: any) => (
+                    <tr key={log.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          log.severity === 'CRITICAL' ? 'bg-red-100 text-red-600 border-red-200' :
+                          log.severity === 'ERROR' ? 'bg-orange-100 text-orange-600 border-orange-200' :
+                          log.severity === 'WARNING' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                          'bg-blue-100 text-blue-600 border-blue-200'
+                        }`}>{log.severity}</span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-stone-700 font-mono">{log.type}</td>
+                      <td className="px-6 py-4 text-xs text-stone-600 max-w-xs truncate">{log.message}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{log.context}</td>
+                      <td className="px-6 py-4 text-xs font-black text-stone-800">{log.count || 1}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
+  const [activeTab, setActiveTab] = useState<'partners' | 'users' | 'transactions' | 'error_logs'>('partners');
+  const [institution, setInstitution] = useState<any>(null);
+  const [partners, setPartners] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [errorLogs, setErrorLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [institutionId, setInstitutionId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchInstitution = async () => {
+      try {
+        const userRef = doc(db, 'users', auth.currentUser?.uid || '');
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as any;
+          setInstitutionId(userData.institutionId || '');
+          
+          if (userData.institutionId) {
+            const instRef = doc(db, 'institutions', userData.institutionId);
+            const instSnap = await getDoc(instRef);
+            if (instSnap.exists()) {
+              setInstitution({ id: instSnap.id, ...instSnap.data() });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Gagal memuat data institusi:', e);
+      }
+    };
+
+    fetchInstitution();
+  }, []);
+
+  useEffect(() => {
+    if (!institutionId) return;
+
+    const unsub1 = onSnapshot(query(collection(db, 'partners'), where('institutionId', '==', institutionId)), (snap) => {
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsub2 = onSnapshot(query(collection(db, 'users'), where('institutionId', '==', institutionId)), (snap) => {
+      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsub3 = onSnapshot(query(collection(db, 'transactions')), (snap) => {
+      const allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const filtered = allTx.filter((tx: any) => {
+        if (!institutionId) return false;
+        const partnerIds = partners.map((p: any) => p.id);
+        return tx.partnerId && partnerIds.includes(tx.partnerId);
+      });
+      setTransactions(filtered);
+    });
+
+    const unsub4 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+      setErrorLogs(logs);
+    });
+
+    setLoading(false);
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+  }, [institutionId, partners]);
+
+  const handleApprovePartner = async (partnerId: string) => {
+    try {
+      const partnerRef = doc(db, 'partners', partnerId);
+      await updateDoc(partnerRef, { status: 'approved', approvedAt: new Date().toISOString() });
+      alert('Partner berhasil disetujui!');
+    } catch (e) {
+      console.error('Gagal approve partner:', e);
+      alert('Gagal menyetujui partner');
+    }
+  };
+
+  const handleRejectPartner = async (partnerId: string) => {
+    const reason = prompt('Masukkan alasan penolakan:') || 'Tidak memenuhi kriteria';
+    try {
+      const partnerRef = doc(db, 'partners', partnerId);
+      await updateDoc(partnerRef, { status: 'rejected', rejectionReason: reason });
+      alert('Partner berhasil ditolak.');
+    } catch (e) {
+      console.error('Gagal reject partner:', e);
+      alert('Gagal menolak partner');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-stone-50">
+      <div className="bg-stone-900 text-white px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-display font-black">Institution Admin Dashboard</h1>
+          <p className="text-stone-400 text-xs">{institution?.name || 'Institusi'}</p>
+        </div>
+        <button onClick={onLogout} className="px-4 py-2 bg-red-600 rounded-xl text-xs font-bold hover:bg-red-700">Logout</button>
+      </div>
+
+      <div className="p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Total Partners</p>
+            <p className="text-2xl font-black text-stone-900">{partners.length}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Total Users</p>
+            <p className="text-2xl font-black text-stone-900">{users.length}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Approved Partners</p>
+            <p className="text-2xl font-black text-emerald-600">{partners.filter((p: any) => p.status === 'approved').length}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Pending Partners</p>
+            <p className="text-2xl font-black text-amber-600">{partners.filter((p: any) => p.status === 'pending').length}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {[
+            { id: 'partners', label: 'Partners' },
+            { id: 'users', label: 'Users' },
+            { id: 'transactions', label: 'Transactions' },
+            { id: 'error_logs', label: 'Error Logs' },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap ${activeTab === tab.id ? 'bg-stone-900 text-white' : 'bg-white text-stone-600 border border-stone-200'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'partners' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Daftar Partner</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {partners.map((p: any) => (
+                    <tr key={p.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{p.name}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{p.email}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          p.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          p.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          p.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{p.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {p.status === 'pending' && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => handleApprovePartner(p.id)} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 hover:bg-emerald-100">Approve</button>
+                            <button onClick={() => handleRejectPartner(p.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100">Reject</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Daftar Users</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Points</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {users.map((u: any) => (
+                    <tr key={u.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{u.displayName || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
+                      <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Riwayat Transaksi</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">User</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kategori</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Berat</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {transactions.map((tx: any) => (
+                    <tr key={tx.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{tx.userToken || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500 capitalize">{tx.category || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{tx.weight || 0} kg</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          tx.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          tx.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          tx.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{tx.status}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -5447,6 +6018,32 @@ export default function App() {
     setState('super_admin_dashboard');
   };
 
+  const handleInstAdminLogin = async (email: string, password: string) => {
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email), where('role', '==', 'institution_admin'));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        alert('Akun institution admin tidak ditemukan.');
+        return;
+      }
+
+      const userDoc = snap.docs[0];
+      const userData = userDoc.data() as any;
+
+      if (userData.password !== password) {
+        alert('Password salah!');
+        return;
+      }
+
+      setState('institution_admin_dashboard');
+    } catch (e) {
+      console.error('Login institution admin failed:', e);
+      alert('Gagal login sebagai institution admin.');
+    }
+  };
+
   const handleLogout = async () => {
     setState('login');
   };
@@ -5512,7 +6109,12 @@ export default function App() {
 
             // Jika user berhasil login dari halaman login, tunjukkan welcome screen dulu.
             // Tapi jangan redirect jika sedang di admin_dashboard
-            setState(prev => (prev === 'admin_dashboard' ? 'admin_dashboard' : prev === 'login' ? 'welcome' : prev));
+            // Cek apakah user sudah punya institutionId
+            if (!updatedData.institutionId && state !== 'institution_setup') {
+              setState('institution_setup');
+            } else {
+              setState(prev => (prev === 'admin_dashboard' ? 'admin_dashboard' : prev === 'login' ? 'welcome' : prev));
+            }
           } else {
             // New User Initialization
             const initialData: UserData = {
@@ -5527,7 +6129,7 @@ export default function App() {
             };
             await setDoc(userRef, initialData);
             setUserData(initialData);
-            setState(prev => prev === 'admin_dashboard' ? 'admin_dashboard' : 'welcome');
+            setState(prev => prev === 'admin_dashboard' ? 'admin_dashboard' : 'institution_setup');
           }
           // Selesaikan inisialisasi hanya setelah data Firestore tersedia
           setIsInitializing(false);
@@ -5855,6 +6457,7 @@ export default function App() {
             onGoogleLogin={handleGoogleLogin}
             onAdminLogin={handleAdminLogin}
             onSuperAdminLogin={handleSuperAdminLogin}
+            onInstAdminLogin={handleInstAdminLogin}
           />
         )}
         {state === 'admin_dashboard' && (
@@ -5873,6 +6476,17 @@ export default function App() {
             <SuperAdminDashboard
               onLogout={async () => {
                 if (window.confirm("Apakah anda yakin ingin logout dari panel Super Admin?")) {
+                  await handleLogout();
+                }
+              }}
+            />
+          </div>
+        )}
+        {state === 'institution_admin_dashboard' && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
+            <InstitutionAdminDashboard
+              onLogout={async () => {
+                if (window.confirm("Apakah anda yakin ingin logout dari panel Institution Admin?")) {
                   await handleLogout();
                 }
               }}
@@ -5912,6 +6526,16 @@ export default function App() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+        {state === 'institution_setup' && (
+          <InstitutionSetupScreen
+            onComplete={(institutionId) => {
+              setState('welcome');
+            }}
+            onSkip={() => {
+              setState('welcome');
+            }}
+          />
         )}
         {state === 'welcome' && <WelcomeScreen onStart={() => setState('main')} />}
         {state === 'about' && <AboutScreen onBack={() => setState('main')} />}
