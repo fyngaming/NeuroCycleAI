@@ -2068,17 +2068,24 @@ const NotificationModal = ({
   );
 };
 
-const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdminLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void, onInstAdminLogin: (email: string, password: string) => void }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showAdminForm, setShowAdminForm] = useState(false);
-  const [showSuperAdminForm, setShowSuperAdminForm] = useState(false);
-  const [showInstAdminForm, setShowInstAdminForm] = useState(false);
+const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdminLogin, onInstAdminRegister }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void, onInstAdminLogin: (email: string, password: string) => void, onInstAdminRegister: (email: string, password: string, institutionCode: string) => Promise<boolean> }) => {
+  const [activeTab, setActiveTab] = useState<'user' | 'admin' | 'super_admin' | 'inst_admin'>('user');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [superEmail, setSuperEmail] = useState('');
   const [superPassword, setSuperPassword] = useState('');
   const [instEmail, setInstEmail] = useState('');
   const [instPassword, setInstPassword] = useState('');
+  const [instCode, setInstCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [instMode, setInstMode] = useState<'login' | 'register'>('login');
+
+  const tabs = [
+    { id: 'user', label: 'User', color: 'emerald' },
+    { id: 'admin', label: 'Admin', color: 'emerald' },
+    { id: 'super_admin', label: 'Super Admin', color: 'amber' },
+    { id: 'inst_admin', label: 'Institution Admin', color: 'blue' },
+  ] as const;
 
   return (
     <motion.div
@@ -2096,183 +2103,168 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
         </div>
 
         <h1 className="text-4xl font-display font-black text-center mb-4 text-emerald-50">NeuroCycle</h1>
-        <p className="text-stone-400 text-center mb-10 text-sm leading-relaxed px-4">
+        <p className="text-stone-400 text-center mb-8 text-sm leading-relaxed px-4">
           Silakan masuk untuk melanjutkan ke layanan pengelolaan sampah cerdas.
         </p>
 
-        <button
-          onClick={onGoogleLogin}
-          className="w-full bg-white text-stone-900 font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl mb-8"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-          Lanjutkan dengan Google
-        </button>
-
-        {/* Toggle Admin */}
-        <button
-          onClick={() => setShowAdminForm(!showAdminForm)}
-          className="w-full flex items-center gap-4 mb-6 group"
-        >
-          <div className="flex-1 h-px bg-stone-700" />
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors flex items-center gap-1.5">
-            Atau Admin
-            <motion.span
-              animate={{ rotate: showAdminForm ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-              className="inline-block"
+        {/* Tab selector */}
+        <div className="w-full grid grid-cols-4 gap-1 bg-stone-800/50 p-1 rounded-2xl mb-6">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === tab.id
+                  ? tab.id === 'user' ? 'bg-emerald-600 text-white shadow-lg' :
+                    tab.id === 'admin' ? 'bg-emerald-600 text-white shadow-lg' :
+                    tab.id === 'super_admin' ? 'bg-amber-600 text-white shadow-lg' :
+                    'bg-blue-600 text-white shadow-lg'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
             >
-              ▾
-            </motion.span>
-          </span>
-          <div className="flex-1 h-px bg-stone-700" />
-        </button>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Admin Form — hanya muncul jika showAdminForm */}
-        <AnimatePresence>
-          {showAdminForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="w-full overflow-hidden"
+        {/* User Tab */}
+        {activeTab === 'user' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full"
+          >
+            <button
+              onClick={onGoogleLogin}
+              className="w-full bg-white text-stone-900 font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl"
             >
-              <div className="space-y-4 mb-4">
-                <input
-                  type="text"
-                  placeholder="Admin Username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 border border-stone-700"
-                />
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Admin Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && onAdminLogin(username, password)}
-                    className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 border border-stone-700"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+              Lanjutkan dengan Google
+            </button>
+          </motion.div>
+        )}
+
+        {/* Admin Tab */}
+        {activeTab === 'admin' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full space-y-4"
+          >
+            <input
+              type="text"
+              placeholder="Admin Username"
+              value={adminUsername}
+              onChange={(e) => setAdminUsername(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onAdminLogin(adminUsername, adminPassword)}
+              className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 border border-stone-700"
+            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Admin Password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onAdminLogin(adminUsername, adminPassword)}
+                className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 border border-stone-700"
+              />
               <button
-                onClick={() => onAdminLogin(username, password)}
-                className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
               >
-                Masuk sebagai Admin
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Toggle Super Admin */}
-        <button
-          onClick={() => setShowSuperAdminForm(!showSuperAdminForm)}
-          className="w-full flex items-center gap-4 mb-6 group"
-        >
-          <div className="flex-1 h-px bg-stone-700" />
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors flex items-center gap-1.5">
-            Atau Super Admin
-            <motion.span
-              animate={{ rotate: showSuperAdminForm ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-              className="inline-block"
+            </div>
+            <button
+              onClick={() => onAdminLogin(adminUsername, adminPassword)}
+              className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
             >
-              ▾
-            </motion.span>
-          </span>
-          <div className="flex-1 h-px bg-stone-700" />
-        </button>
+              Masuk sebagai Admin
+            </button>
+          </motion.div>
+        )}
 
-        {/* Super Admin Form */}
-        <AnimatePresence>
-          {showSuperAdminForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="w-full overflow-hidden"
-            >
-              <div className="space-y-4 mb-4">
-                <input
-                  type="email"
-                  placeholder="Super Admin Email"
-                  value={superEmail}
-                  onChange={(e) => setSuperEmail(e.target.value)}
-                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
-                />
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Super Admin Password"
-                    value={superPassword}
-                    onChange={(e) => setSuperPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && onSuperAdminLogin(superEmail, superPassword)}
-                    className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
+        {/* Super Admin Tab */}
+        {activeTab === 'super_admin' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full space-y-4"
+          >
+            <input
+              type="email"
+              placeholder="Super Admin Email"
+              value={superEmail}
+              onChange={(e) => setSuperEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onSuperAdminLogin(superEmail, superPassword)}
+              className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
+            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Super Admin Password"
+                value={superPassword}
+                onChange={(e) => setSuperPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onSuperAdminLogin(superEmail, superPassword)}
+                className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 border border-stone-700"
+              />
               <button
-                onClick={() => onSuperAdminLogin(superEmail, superPassword)}
-                className="w-full bg-amber-600 text-white font-bold py-4 rounded-2xl hover:bg-amber-700 shadow-lg shadow-amber-900/20 active:scale-95 transition-all"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
               >
-                Masuk sebagai Super Admin
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Toggle Institution Admin */}
-        <button
-          onClick={() => setShowInstAdminForm(!showInstAdminForm)}
-          className="w-full flex items-center gap-4 mb-6 group"
-        >
-          <div className="flex-1 h-px bg-stone-700" />
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors flex items-center gap-1.5">
-            Atau Institution Admin
-            <motion.span
-              animate={{ rotate: showInstAdminForm ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-              className="inline-block"
+            </div>
+            <button
+              onClick={() => onSuperAdminLogin(superEmail, superPassword)}
+              className="w-full bg-amber-600 text-white font-bold py-4 rounded-2xl hover:bg-amber-700 shadow-lg shadow-amber-900/20 active:scale-95 transition-all"
             >
-              ▾
-            </motion.span>
-          </span>
-          <div className="flex-1 h-px bg-stone-700" />
-        </button>
+              Masuk sebagai Super Admin
+            </button>
+          </motion.div>
+        )}
 
-        {/* Institution Admin Form */}
-        <AnimatePresence>
-          {showInstAdminForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="w-full overflow-hidden"
-            >
-              <div className="space-y-4 mb-4">
+        {/* Institution Admin Tab */}
+        {activeTab === 'inst_admin' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full"
+          >
+            {/* Mode toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setInstMode('login')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  instMode === 'login'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-stone-800 text-stone-500 hover:text-stone-300'
+                }`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setInstMode('register')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  instMode === 'register'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-stone-800 text-stone-500 hover:text-stone-300'
+                }`}
+              >
+                Daftar
+              </button>
+            </div>
+
+            {instMode === 'login' ? (
+              <div className="space-y-4">
                 <input
                   type="email"
                   placeholder="Institution Admin Email"
                   value={instEmail}
                   onChange={(e) => setInstEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onInstAdminLogin(instEmail, instPassword)}
                   className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
                 />
                 <div className="relative">
@@ -2292,16 +2284,66 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                <button
+                  onClick={() => onInstAdminLogin(instEmail, instPassword)}
+                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+                >
+                  Masuk sebagai Institution Admin
+                </button>
               </div>
-              <button
-                onClick={() => onInstAdminLogin(instEmail, instPassword)}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
-              >
-                Masuk sebagai Institution Admin
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ) : (
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={instEmail}
+                  onChange={(e) => setInstEmail(e.target.value)}
+                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
+                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Password"
+                    value={instPassword}
+                    onChange={(e) => setInstPassword(e.target.value)}
+                    className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Kode Institusi"
+                  value={instCode}
+                  onChange={(e) => setInstCode(e.target.value.toUpperCase())}
+                  className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700 font-mono uppercase tracking-widest text-center"
+                />
+                <p className="text-[10px] text-stone-500 text-center">
+                  Daftar sebagai admin institusi dengan kode yang diberikan Super Admin
+                </p>
+                <button
+                  onClick={async () => {
+                    const success = await onInstAdminRegister(instEmail, instPassword, instCode);
+                    if (success) {
+                      setInstEmail('');
+                      setInstPassword('');
+                      setInstCode('');
+                      setInstMode('login');
+                    }
+                  }}
+                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+                >
+                  Daftar sebagai Institution Admin
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );
@@ -6044,6 +6086,65 @@ export default function App() {
     }
   };
 
+  const handleInstAdminRegister = async (email: string, password: string, institutionCode: string): Promise<boolean> => {
+    try {
+      if (!email || !password || !institutionCode) {
+        alert('Semua field harus diisi!');
+        return;
+      }
+
+      const instQuery = query(collection(db, 'institutions'), where('code', '==', institutionCode.toUpperCase()));
+      const instSnap = await getDocs(instQuery);
+
+      if (instSnap.empty) {
+        alert('Kode institusi tidak ditemukan!');
+        return;
+      }
+
+      const instDoc = instSnap.docs[0];
+      const instData = instDoc.data();
+
+      const usersRef = collection(db, 'users');
+      const existingQuery = query(usersRef, where('email', '==', email));
+      const existingSnap = await getDocs(existingQuery);
+
+      if (!existingSnap.empty) {
+        alert('Email sudah terdaftar!');
+        return;
+      }
+
+      const newUserRef = doc(collection(db, 'users'));
+      await setDoc(newUserRef, {
+        email,
+        password,
+        role: 'institution_admin',
+        institutionId: instDoc.id,
+        institutionName: instData.name || '',
+        displayName: email.split('@')[0],
+        points: 0,
+        scans: 0,
+        level: 'Pemula',
+        streak: 0,
+        lastLogin: new Date().toDateString(),
+        mascotName: 'Eco',
+        qrToken: Math.random().toString(36).substr(2, 9),
+        isBanned: false,
+        notifications: [],
+        scanHistory: [],
+        claimHistory: [],
+        depositHistory: [],
+        history: []
+      });
+
+      alert('Pendaftaran institution admin berhasil! Silakan login.');
+      return true;
+    } catch (e) {
+      console.error('Register institution admin failed:', e);
+      alert('Gagal mendaftar sebagai institution admin.');
+      return false;
+    }
+  };
+
   const handleLogout = async () => {
     setState('login');
   };
@@ -6458,6 +6559,7 @@ export default function App() {
             onAdminLogin={handleAdminLogin}
             onSuperAdminLogin={handleSuperAdminLogin}
             onInstAdminLogin={handleInstAdminLogin}
+            onInstAdminRegister={handleInstAdminRegister}
           />
         )}
         {state === 'admin_dashboard' && (
