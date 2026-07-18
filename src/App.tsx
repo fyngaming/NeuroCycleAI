@@ -2079,6 +2079,19 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
   const [instCode, setInstCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [instMode, setInstMode] = useState<'login' | 'register'>('login');
+  const [showInstList, setShowInstList] = useState(false);
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [loadingInst, setLoadingInst] = useState(false);
+
+  useEffect(() => {
+    if (!showInstList) return;
+    setLoadingInst(true);
+    const unsub = onSnapshot(collection(db, 'institutions'), (snap) => {
+      setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoadingInst(false);
+    });
+    return () => unsub();
+  }, [showInstList]);
 
   const tabs = [
     { id: 'user', label: 'User', color: 'emerald' },
@@ -2326,6 +2339,15 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 <p className="text-[10px] text-stone-500 text-center">
                   Daftar sebagai admin institusi dengan kode yang diberikan Super Admin
                 </p>
+
+                <button
+                  onClick={() => setShowInstList(true)}
+                  className="w-full py-3 text-blue-400 text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Building2 size={14} />
+                  Lihat Daftar Institusi & Kode
+                </button>
+
                 <button
                   onClick={async () => {
                     const success = await onInstAdminRegister(instEmail, instPassword, instCode);
@@ -2342,6 +2364,55 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 </button>
               </div>
             )}
+
+            <AnimatePresence>
+              {showInstList && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+                  onClick={() => setShowInstList(false)}
+                >
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 20, opacity: 0 }}
+                    className="bg-white rounded-[32px] p-6 w-full max-w-sm max-h-[80vh] overflow-hidden shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-display font-black text-stone-900">Daftar Institusi</h3>
+                      <button onClick={() => setShowInstList(false)} className="p-2 hover:bg-stone-100 rounded-xl">
+                        <X size={20} className="text-stone-600" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-stone-500 mb-4">
+                      Berikut adalah daftar institusi yang terdaftar. Gunakan kode institusi untuk mendaftar sebagai admin.
+                    </p>
+                    {loadingInst ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="animate-spin text-blue-600" size={32} />
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                        {institutions.length === 0 ? (
+                          <p className="text-sm text-stone-500 text-center py-4">Belum ada institusi terdaftar.</p>
+                        ) : (
+                          institutions.map((inst: any) => (
+                            <div key={inst.id} className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                              <p className="text-sm font-bold text-stone-800">{inst.name || 'Nama tidak tersedia'}</p>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-widest mt-1">Kode: <span className="font-mono font-black text-blue-600 text-sm">{inst.code || '-'}</span></p>
+                              {inst.type && <p className="text-[10px] text-stone-400 mt-1 capitalize">Tipe: {inst.type}</p>}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </div>
