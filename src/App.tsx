@@ -2105,12 +2105,15 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-stone-900 text-white flex flex-col items-center justify-center p-6 overflow-hidden fixed inset-0 z-50 w-full"
+      className="fixed inset-0 z-50 w-full h-full bg-stone-900 text-white flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden"
     >
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-[100px]" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-[100px]" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-emerald-500/15 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 -right-32 w-[400px] h-[400px] bg-blue-500/15 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-32 left-1/3 w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[120px]" />
+      </div>
 
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
         <div className="w-24 h-24 bg-linear-to-tr from-emerald-400 to-emerald-600 rounded-4xl flex items-center justify-center shadow-2xl shadow-emerald-500/30 mb-8">
           <Recycle size={48} className="text-white" />
         </div>
