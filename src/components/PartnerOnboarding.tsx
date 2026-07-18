@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
@@ -9,6 +9,8 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [phone, setPhone] = useState('');
+  const [institutionId, setInstitutionId] = useState('');
+  const [institutions, setInstitutions] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -34,6 +36,18 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
     return () => unsub();
   }, [uid]);
 
+  useEffect(() => {
+    const fetchInstitutions = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'institutions'));
+        setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error('Gagal memuat institusi:', e);
+      }
+    };
+    fetchInstitutions();
+  }, []);
+
   const submit = async () => {
     setErrorMsg('');
     if (!uid) {
@@ -42,6 +56,10 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
     }
     if (!name || !email || !phone || !address) {
       alert('Mohon lengkapi semua field utama (Nama, Email, Telepon, Alamat)');
+      return;
+    }
+    if (!institutionId) {
+      alert('Mohon pilih institusi');
       return;
     }
 
@@ -67,6 +85,7 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
         address,
         notes,
         ownerUid: uid,
+        institutionId,
         status: 'pending',
         createdAt: new Date().toISOString()
       };
@@ -259,15 +278,29 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
               value={address} 
               onChange={(e) => setAddress(e.target.value)} 
             />
-          </div>
+           </div>
 
-          <div>
-            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Catatan Tambahan (Opsional)</label>
-            <textarea 
-              placeholder="Tambahkan informasi penting lainnya jika ada" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all min-h-20" 
-              value={notes} 
-              onChange={(e) => setNotes(e.target.value)} 
+           <div>
+             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Institusi</label>
+             <select
+               value={institutionId}
+               onChange={(e) => setInstitutionId(e.target.value)}
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all bg-white"
+             >
+               <option value="">-- Pilih Institusi --</option>
+               {institutions.map((inst: any) => (
+                 <option key={inst.id} value={inst.id}>{inst.name} ({inst.type})</option>
+               ))}
+             </select>
+           </div>
+
+           <div>
+             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Catatan Tambahan (Opsional)</label>
+             <textarea 
+               placeholder="Tambahkan informasi penting lainnya jika ada" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all min-h-20" 
+               value={notes} 
+               onChange={(e) => setNotes(e.target.value)} 
             />
           </div>
 

@@ -28,14 +28,29 @@ service cloud.firestore {
     function isOwner(userId: string) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+    
+    function isInstitutionAdmin(institutionId: string) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.institutionId == institutionId;
+    }
 
     match /superAdmins/{adminId} {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
     }
 
+    match /institutions/{institutionId} {
+      allow read: if isAuthenticated();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isSuperAdmin());
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isSuperAdmin() || (
+        isInstitutionAdmin(resource.data.institutionId)
+      ));
       allow create: if isOwner(userId);
       allow update: if isAuthenticated() && (
         isSuperAdmin() || isAdmin() || (

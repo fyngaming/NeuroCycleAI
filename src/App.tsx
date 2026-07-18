@@ -73,6 +73,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   onSnapshot,
   query,
@@ -2859,7 +2860,7 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               </motion.div>
             )}
 
-            {activeTab === 'partners' && (
+        {activeTab === 'partners' && (
               <motion.div
                 key="partners"
                 initial={{ opacity: 0, x: 20 }}
@@ -4853,30 +4854,98 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [errorLogs, setErrorLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInstitutionForm, setShowInstitutionForm] = useState(false);
+  const [editingInstitution, setEditingInstitution] = useState<any>(null);
+  const [institutionForm, setInstitutionForm] = useState({
+    name: '',
+    type: 'school',
+    email: '',
+    phone: '',
+    address: '',
+    adminUid: '',
+    status: 'active',
+  });
 
   useEffect(() => {
-    const unsub1 = onSnapshot(collection(db, 'partners'), (snap) => {
+    const unsub1 = onSnapshot(collection(db, 'institutions'), (snap) => {
+      setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsub2 = onSnapshot(collection(db, 'partners'), (snap) => {
       setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsub2 = onSnapshot(collection(db, 'users'), (snap) => {
+    const unsub3 = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsub3 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
+    const unsub4 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
       const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
       setErrorLogs(logs);
     });
     setLoading(false);
-    return () => { unsub1(); unsub2(); unsub3(); };
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, []);
 
   const stats = useMemo(() => ({
     totalPartners: partners.length,
     totalUsers: users.length,
     totalErrors: errorLogs.length,
+    totalInstitutions: institutions.length,
     approvedPartners: partners.filter((p: any) => p.status === 'approved').length,
     pendingPartners: partners.filter((p: any) => p.status === 'pending').length,
-  }), [partners, users, errorLogs]);
+  }), [partners, users, errorLogs, institutions]);
+
+  const handleCreateInstitution = async () => {
+    try {
+      const instRef = doc(collection(db, 'institutions'));
+      await setDoc(instRef, {
+        ...institutionForm,
+        createdAt: new Date().toISOString(),
+      });
+      setShowInstitutionForm(false);
+      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+    } catch (e) {
+      console.error('Gagal membuat institusi:', e);
+      alert('Gagal membuat institusi');
+    }
+  };
+
+  const handleUpdateInstitution = async () => {
+    if (!editingInstitution) return;
+    try {
+      const instRef = doc(db, 'institutions', editingInstitution.id);
+      await updateDoc(instRef, institutionForm);
+      setEditingInstitution(null);
+      setShowInstitutionForm(false);
+      setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+    } catch (e) {
+      console.error('Gagal update institusi:', e);
+      alert('Gagal update institusi');
+    }
+  };
+
+  const handleDeleteInstitution = async (id: string) => {
+    if (!window.confirm('Yakin ingin menghapus institusi ini?')) return;
+    try {
+      await deleteDoc(doc(db, 'institutions', id));
+    } catch (e) {
+      console.error('Gagal menghapus institusi:', e);
+      alert('Gagal menghapus institusi');
+    }
+  };
+
+  const openEditForm = (inst: any) => {
+    setEditingInstitution(inst);
+    setInstitutionForm({
+      name: inst.name || '',
+      type: inst.type || 'school',
+      email: inst.email || '',
+      phone: inst.phone || '',
+      address: inst.address || '',
+      adminUid: inst.adminUid || '',
+      status: inst.status || 'active',
+    });
+    setShowInstitutionForm(true);
+  };
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -4906,7 +4975,92 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             <p className="text-[10px] font-black text-stone-400 uppercase">Error Logs</p>
             <p className="text-2xl font-black text-red-600">{stats.totalErrors}</p>
           </div>
+          <div className="bg-white p-4 rounded-2xl border border-stone-100">
+            <p className="text-[10px] font-black text-stone-400 uppercase">Institutions</p>
+            <p className="text-2xl font-black text-blue-600">{stats.totalInstitutions}</p>
+          </div>
         </div>
+
+        {showInstitutionForm && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md flex items-center justify-center z-50 p-6">
+            <div className="bg-white rounded-[40px] p-8 max-w-lg w-full shadow-2xl">
+              <h3 className="text-xl font-display font-black mb-6">{editingInstitution ? 'Edit' : 'Tambah'} Institusi</h3>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Nama Institusi"
+                  value={institutionForm.name}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, name: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <select
+                  value={institutionForm.type}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, type: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="school">Sekolah</option>
+                  <option value="company">Perusahaan</option>
+                  <option value="government">Instansi Pemerintah</option>
+                  <option value="community">Komunitas</option>
+                </select>
+                <input
+                  type="email"
+                  placeholder="Email Institusi"
+                  value={institutionForm.email}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, email: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <input
+                  type="text"
+                  placeholder="No. Telepon"
+                  value={institutionForm.phone}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, phone: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <textarea
+                  placeholder="Alamat"
+                  value={institutionForm.address}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, address: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Admin UID (opsional)"
+                  value={institutionForm.adminUid}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, adminUid: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <select
+                  value={institutionForm.status}
+                  onChange={(e) => setInstitutionForm({ ...institutionForm, status: e.target.value })}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={editingInstitution ? handleUpdateInstitution : handleCreateInstitution}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all"
+                >
+                  {editingInstitution ? 'Update' : 'Buat Institusi'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowInstitutionForm(false);
+                    setEditingInstitution(null);
+                    setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', status: 'active' });
+                  }}
+                  className="px-6 py-4 bg-stone-200 text-stone-700 rounded-2xl font-bold hover:bg-stone-300 transition-all"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {[
