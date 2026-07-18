@@ -5062,6 +5062,74 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
 
+        {activeTab === 'institutions' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+              <h3 className="text-lg font-display font-black">Daftar Institusi</h3>
+              <button
+                onClick={() => setShowInstitutionForm(true)}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 flex items-center gap-2"
+              >
+                <Plus size={14} /> Tambah Institusi
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Tipe</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Admin UID</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {institutions.map((inst: any) => (
+                    <tr key={inst.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{inst.name}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500 capitalize">{inst.type}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{inst.email || '-'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          inst.status === 'active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          inst.status === 'suspended' ? 'bg-red-100 text-red-700 border-red-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{inst.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{inst.adminUid || '-'}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditForm(inst)}
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInstitution(inst.id)}
+                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {institutions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-stone-400 text-sm">
+                        Belum ada institusi. Klik "Tambah Institusi" untuk membuat.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {[
             { id: 'institutions', label: 'Institutions' },
