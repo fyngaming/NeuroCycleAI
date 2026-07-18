@@ -5227,10 +5227,11 @@ const ReadingTimer = ({
 };
 
 const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'institutions' | 'partners' | 'users' | 'error_logs'>('institutions');
+  const [activeTab, setActiveTab] = useState<'institutions' | 'partners' | 'users' | 'transactions' | 'error_logs'>('institutions');
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [errorLogs, setErrorLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInstitutionForm, setShowInstitutionForm] = useState(false);
@@ -5256,13 +5257,16 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     const unsub3 = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsub4 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
+    const unsub4 = onSnapshot(collection(db, 'transactions'), (snap) => {
+      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    });
+    const unsub5 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
       const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
       setErrorLogs(logs);
     });
     setLoading(false);
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); };
   }, []);
 
   const stats = useMemo(() => ({
@@ -5527,6 +5531,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             { id: 'institutions', label: 'Institutions' },
             { id: 'partners', label: 'Partners' },
             { id: 'users', label: 'Users' },
+            { id: 'transactions', label: 'Transactions' },
             { id: 'error_logs', label: 'Error Logs' },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
@@ -5641,6 +5646,55 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             </div>
           </div>
         )}
+
+        {activeTab === 'transactions' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Semua Transaksi</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Partner</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">User</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kategori</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Berat</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Poin</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Tanggal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {transactions.slice(0, 100).map((tx: any) => (
+                    <tr key={tx.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-xs font-bold text-stone-800">{tx.partnerName || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{tx.userToken || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500 capitalize">{tx.category || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{tx.totalWeight || tx.weight || 0} kg</td>
+                      <td className="px-6 py-4 text-xs font-black text-emerald-600">{tx.totalPoints || 0}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          tx.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          tx.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          tx.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                          tx.status === 'flagged_for_review' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{tx.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-[10px] text-stone-400">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('id-ID') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {transactions.length === 0 && (
+                <div className="px-6 py-12 text-center text-stone-400 text-sm">
+                  Belum ada transaksi.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5655,6 +5709,10 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [errorLogs, setErrorLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [institutionId, setInstitutionId] = useState<string>('');
+  const [showAddPartnerForm, setShowAddPartnerForm] = useState(false);
+  const [newPartner, setNewPartner] = useState({ name: '', email: '', phone: '', address: '', notes: '' });
+  const [assigningUser, setAssigningUser] = useState<string | null>(null);
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
 
   useEffect(() => {
     const fetchInstitution = async () => {
@@ -5735,6 +5793,60 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const handleAddPartner = async () => {
+    if (!newPartner.name.trim() || !newPartner.email.trim()) {
+      alert('Nama dan email partner harus diisi!');
+      return;
+    }
+    try {
+      const partnerRef = doc(collection(db, 'partners'));
+      await setDoc(partnerRef, {
+        name: newPartner.name.trim(),
+        email: newPartner.email.trim(),
+        phone: newPartner.phone.trim(),
+        address: newPartner.address.trim(),
+        notes: newPartner.notes.trim(),
+        ownerUid: auth.currentUser?.uid || '',
+        institutionId: institutionId,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+      alert('Partner berhasil ditambahkan dan menunggu persetujuan!');
+      setShowAddPartnerForm(false);
+      setNewPartner({ name: '', email: '', phone: '', address: '', notes: '' });
+    } catch (e) {
+      console.error('Gagal menambah partner:', e);
+      alert('Gagal menambah partner');
+    }
+  };
+
+  const handleAssignUserToPartner = async (userId: string) => {
+    if (!selectedPartnerId) {
+      alert('Pilih partner terlebih dahulu!');
+      return;
+    }
+    try {
+      const userRef = doc(db, 'users', userId);
+      const partnerRef = doc(db, 'partners', selectedPartnerId);
+      const partnerSnap = await getDoc(partnerRef);
+      if (!partnerSnap.exists()) {
+        alert('Partner tidak ditemukan!');
+        return;
+      }
+      const partnerData = partnerSnap.data();
+      await updateDoc(userRef, {
+        partnerId: selectedPartnerId,
+        partnerName: partnerData.name || '',
+      });
+      alert('User berhasil di-assign ke partner!');
+      setAssigningUser(null);
+      setSelectedPartnerId('');
+    } catch (e) {
+      console.error('Gagal assign user:', e);
+      alert('Gagal assign user ke partner');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
@@ -5789,8 +5901,14 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
         {activeTab === 'partners' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
-            <div className="p-6 border-b border-stone-100">
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between">
               <h3 className="text-lg font-display font-black">Daftar Partner</h3>
+              <button
+                onClick={() => setShowAddPartnerForm(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus size={14} /> Tambah Partner
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -5831,6 +5949,77 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
 
+        {/* Add Partner Modal */}
+        <AnimatePresence>
+          {showAddPartnerForm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+              onClick={() => setShowAddPartnerForm(false)}
+            >
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-display font-black text-stone-900">Tambah Partner</h3>
+                  <button onClick={() => setShowAddPartnerForm(false)} className="p-2 hover:bg-stone-100 rounded-xl">
+                    <X size={20} className="text-stone-600" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Nama Partner *"
+                    value={newPartner.name}
+                    onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email Partner *"
+                    value={newPartner.email}
+                    onChange={(e) => setNewPartner({ ...newPartner, email: e.target.value })}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="No. Telepon"
+                    value={newPartner.phone}
+                    onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <textarea
+                    placeholder="Alamat"
+                    value={newPartner.address}
+                    onChange={(e) => setNewPartner({ ...newPartner, address: e.target.value })}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={2}
+                  />
+                  <textarea
+                    placeholder="Catatan"
+                    value={newPartner.notes}
+                    onChange={(e) => setNewPartner({ ...newPartner, notes: e.target.value })}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={2}
+                  />
+                  <button
+                    onClick={handleAddPartner}
+                    className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+                  >
+                    Tambah Partner
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100">
@@ -5844,6 +6033,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Points</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
@@ -5853,6 +6043,14 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
                       <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
                       <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => setAssigningUser(u.id)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
+                        >
+                          Assign Partner
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -5860,6 +6058,52 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             </div>
           </div>
         )}
+
+        {/* Assign User to Partner Modal */}
+        <AnimatePresence>
+          {assigningUser && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+              onClick={() => { setAssigningUser(null); setSelectedPartnerId(''); }}
+            >
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-display font-black text-stone-900">Assign User ke Partner</h3>
+                  <button onClick={() => { setAssigningUser(null); setSelectedPartnerId(''); }} className="p-2 hover:bg-stone-100 rounded-xl">
+                    <X size={20} className="text-stone-600" />
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500 mb-3">Pilih partner untuk user ini:</p>
+                <select
+                  value={selectedPartnerId}
+                  onChange={(e) => setSelectedPartnerId(e.target.value)}
+                  className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-4"
+                >
+                  <option value="">-- Pilih Partner --</option>
+                  {partners.filter((p: any) => p.status === 'approved').map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleAssignUserToPartner(assigningUser)}
+                  disabled={!selectedPartnerId}
+                  className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                >
+                  Assign
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {activeTab === 'transactions' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
