@@ -7457,7 +7457,7 @@ export default function App() {
         onChange={handleImageInput}
       />
 
-      {(state !== 'login' && state !== 'welcome' && state !== 'admin_dashboard' && state !== 'education_detail' && state !== 'scan_options' && state !== 'waste_bank_list' && state !== 'waste_bank_calculate' && state !== 'waste_bank_verify' && state !== 'daily_missions' && state !== 'quiz') && (
+      {(state !== 'login' && state !== 'welcome' && state !== 'admin_dashboard' && state !== 'super_admin_dashboard' && state !== 'institution_admin_dashboard' && state !== 'education_detail' && state !== 'scan_options' && state !== 'waste_bank_list' && state !== 'waste_bank_calculate' && state !== 'waste_bank_verify' && state !== 'daily_missions' && state !== 'quiz') && (
         <BottomNav
           active={state}
           onChange={(nextState) => setState(nextState)}
