@@ -6617,7 +6617,7 @@ export default function App() {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center">
         <Loader2 className="animate-spin text-emerald-500" size={48} />
       </div>
     );
