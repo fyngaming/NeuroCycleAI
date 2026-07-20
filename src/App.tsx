@@ -2636,31 +2636,40 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 <p className="text-xs text-stone-500 mb-4">
                   Untuk partner lama yang belum memiliki password. Masukkan email partner dan buat password baru.
                 </p>
-                <div className="space-y-3">
-                  <input
-                    type="email"
-                    placeholder="Email Partner"
-                    value={setPasswordEmail}
-                    onChange={(e) => setSetPasswordEmail(e.target.value)}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password Baru"
-                    value={setPasswordValue}
-                    onChange={(e) => setSetPasswordValue(e.target.value)}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Konfirmasi Password"
-                    value={setPasswordConfirm}
-                    onChange={(e) => setSetPasswordConfirm(e.target.value)}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 mb-1.5 block">Email Partner</label>
+                    <input
+                      type="email"
+                      placeholder="contoh: partner@mail.com"
+                      value={setPasswordEmail}
+                      onChange={(e) => setSetPasswordEmail(e.target.value)}
+                      className="w-full bg-white px-4 py-3.5 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-base text-stone-900 placeholder:text-stone-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 mb-1.5 block">Password Baru</label>
+                    <input
+                      type="password"
+                      placeholder="Minimal 6 karakter"
+                      value={setPasswordValue}
+                      onChange={(e) => setSetPasswordValue(e.target.value)}
+                      className="w-full bg-white px-4 py-3.5 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-base text-stone-900 placeholder:text-stone-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 mb-1.5 block">Konfirmasi Password</label>
+                    <input
+                      type="password"
+                      placeholder="Ulangi password baru"
+                      value={setPasswordConfirm}
+                      onChange={(e) => setSetPasswordConfirm(e.target.value)}
+                      className="w-full bg-white px-4 py-3.5 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-base text-stone-900 placeholder:text-stone-400"
+                    />
+                  </div>
                   <button
                     onClick={handleSetPassword}
-                    className="w-full py-3 bg-teal-600 text-white rounded-2xl font-bold hover:bg-teal-700 transition-all"
+                    className="w-full py-3.5 bg-teal-600 text-white rounded-2xl font-bold hover:bg-teal-700 transition-all mt-2"
                   >
                     Simpan Password
                   </button>
