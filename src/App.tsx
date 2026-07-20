@@ -5380,6 +5380,9 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     code: '',
     status: 'active',
   });
+  const [showAssignAdminForm, setShowAssignAdminForm] = useState(false);
+  const [assigningInstitution, setAssigningInstitution] = useState<any>(null);
+  const [selectedUserEmail, setSelectedUserEmail] = useState('');
 
   useEffect(() => {
     const unsub1 = onSnapshot(collection(db, 'institutions'), (snap) => {
@@ -5466,6 +5469,47 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       status: inst.status || 'active',
     });
     setShowInstitutionForm(true);
+  };
+
+  const openAssignAdminForm = (inst: any) => {
+    setAssigningInstitution(inst);
+    setSelectedUserEmail('');
+    setShowAssignAdminForm(true);
+  };
+
+  const handleAssignAdmin = async () => {
+    if (!assigningInstitution || !selectedUserEmail.trim()) {
+      alert('Email user harus diisi!');
+      return;
+    }
+    try {
+      const usersQuery = query(collection(db, 'users'), where('email', '==', selectedUserEmail.trim()));
+      const usersSnap = await getDocs(usersQuery);
+      
+      if (usersSnap.empty) {
+        alert('User dengan email tersebut tidak ditemukan!');
+        return;
+      }
+
+      const userDoc = usersSnap.docs[0];
+      await updateDoc(doc(db, 'users', userDoc.id), {
+        role: 'institution_admin',
+        institutionId: assigningInstitution.id,
+        institutionName: assigningInstitution.name || ''
+      });
+
+      await updateDoc(doc(db, 'institutions', assigningInstitution.id), {
+        adminUid: userDoc.id
+      });
+
+      alert('Admin institusi berhasil diassign!');
+      setShowAssignAdminForm(false);
+      setAssigningInstitution(null);
+      setSelectedUserEmail('');
+    } catch (e) {
+      console.error('Gagal assign admin:', e);
+      alert('Gagal assign admin institusi');
+    }
   };
 
   return (
@@ -5590,6 +5634,42 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
 
+        {showAssignAdminForm && assigningInstitution && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md flex items-center justify-center z-50 p-6">
+            <div className="bg-white rounded-[40px] p-8 max-w-lg w-full shadow-2xl">
+              <h3 className="text-xl font-display font-black mb-2">Assign Admin ke {assigningInstitution.name}</h3>
+              <p className="text-sm text-stone-500 mb-6">Masukkan email user yang akan dijadikan institution admin.</p>
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="Email User"
+                  value={selectedUserEmail}
+                  onChange={(e) => setSelectedUserEmail(e.target.value)}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleAssignAdmin}
+                    className="flex-1 py-4 bg-purple-600 text-white rounded-2xl font-bold hover:bg-purple-700 transition-all"
+                  >
+                    Assign Admin
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAssignAdminForm(false);
+                      setAssigningInstitution(null);
+                      setSelectedUserEmail('');
+                    }}
+                    className="px-6 py-4 bg-stone-200 text-stone-700 rounded-2xl font-bold hover:bg-stone-300 transition-all"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'institutions' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100 flex items-center justify-between">
@@ -5631,6 +5711,12 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{inst.adminUid || '-'}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openAssignAdminForm(inst)}
+                            className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-purple-200 hover:bg-purple-100"
+                          >
+                            Assign Admin
+                          </button>
                           <button
                             onClick={() => openEditForm(inst)}
                             className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
@@ -5981,6 +6067,38 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const handleRemoveUser = async (userId: string) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus user dari institusi ini?')) return;
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        institutionId: null,
+        partnerId: null,
+        partnerName: ''
+      });
+      alert('User berhasil dihapus dari institusi.');
+    } catch (e) {
+      console.error('Gagal menghapus user:', e);
+      alert('Gagal menghapus user');
+    }
+  };
+
+  const handleEditUserRole = async (userId: string, currentRole: string) => {
+    const newRole = prompt('Masukkan role baru (user / partner / institution_admin):', currentRole);
+    if (!newRole || !['user', 'partner', 'institution_admin'].includes(newRole)) {
+      alert('Role tidak valid! Pilih: user, partner, atau institution_admin');
+      return;
+    }
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { role: newRole });
+      alert('Role user berhasil diubah!');
+    } catch (e) {
+      console.error('Gagal mengubah role:', e);
+      alert('Gagal mengubah role user');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
@@ -6178,12 +6296,26 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
                       <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setAssigningUser(u.id)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
-                        >
-                          Assign Partner
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setAssigningUser(u.id)}
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
+                          >
+                            Assign Partner
+                          </button>
+                          <button
+                            onClick={() => handleEditUserRole(u.id, u.role)}
+                            className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-amber-200 hover:bg-amber-100"
+                          >
+                            Edit Role
+                          </button>
+                          <button
+                            onClick={() => handleRemoveUser(u.id)}
+                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -6422,6 +6554,31 @@ export default function App() {
       setDepositApprovalAlert(newApproval);
     }
   }, [userData.notifications, userData.depositHistory, state]);
+
+  const sendNotificationToInstitutionAdmins = async (institutionId: string, title: string, message: string, type: 'success' | 'warning' | 'info' = 'info') => {
+    try {
+      const adminsQuery = query(collection(db, 'users'), where('institutionId', '==', institutionId), where('role', '==', 'institution_admin'));
+      const adminsSnap = await getDocs(adminsQuery);
+      
+      const promises = adminsSnap.docs.map(adminDoc => {
+        const adminData = adminDoc.data() as UserData;
+        const newNotification: NotificationItem = {
+          id: Math.random().toString(36).substr(2, 9),
+          title,
+          message,
+          date: new Date().toLocaleString('id-ID'),
+          type,
+          isRead: false
+        };
+        const updatedNotifications = [newNotification, ...(adminData.notifications || [])];
+        return updateDoc(doc(db, 'users', adminDoc.id), { notifications: updatedNotifications });
+      });
+      
+      await Promise.all(promises);
+    } catch (e) {
+      console.error('Gagal mengirim notifikasi ke institution admin:', e);
+    }
+  };
 
   // --- Waste Bank State & Handlers ---
   const [selectedWaste, setSelectedWaste] = useState<Record<string, number>>({});

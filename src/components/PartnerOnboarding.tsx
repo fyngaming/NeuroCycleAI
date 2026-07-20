@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, setDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
@@ -86,6 +86,23 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
       };
       
       await setDoc(partnerDocRef, partnerData, { merge: true });
+
+      const adminsQuery = query(collection(db, 'users'), where('institutionId', '==', institutionId), where('role', '==', 'institution_admin'));
+      const adminsSnap = await getDocs(adminsQuery);
+      const promises = adminsSnap.docs.map(adminDoc => {
+        const adminData = adminDoc.data() as any;
+        const newNotification = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: 'Partner Baru Mendaftar',
+          message: `${name} telah mengajukan pendaftaran sebagai partner ke institusi Anda.`,
+          date: new Date().toLocaleString('id-ID'),
+          type: 'info',
+          isRead: false
+        };
+        const updatedNotifications = [newNotification, ...(adminData.notifications || [])];
+        return updateDoc(doc(db, 'users', adminDoc.id), { notifications: updatedNotifications });
+      });
+      await Promise.all(promises);
       
       alert('✅ Permohonan pendaftaran partner berhasil dikirim! Silakan tunggu verifikasi admin.');
       setIsReapplying(false);
