@@ -2200,6 +2200,9 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
       setSetPasswordEmail('');
       setSetPasswordValue('');
       setSetPasswordConfirm('');
+      setActiveTab('partner');
+      setPartnerEmail(setPasswordEmail);
+      setPartnerPassword('');
     } catch (e) {
       console.error('Gagal set password:', e);
       alert('Gagal mengatur password.');
@@ -3536,7 +3539,11 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           </div>
                           <div className="bg-white rounded-2xl p-4 border border-stone-100">
                             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Alamat</p>
-                            <p className="text-sm font-medium text-stone-600 leading-relaxed">{p.address}</p>
+                            <p className="text-sm text-medium text-stone-600 leading-relaxed">{p.address}</p>
+                          </div>
+                          <div className="bg-white rounded-2xl p-4 border border-stone-100">
+                            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Password</p>
+                            <p className="text-sm font-mono font-semibold text-stone-800 break-all">{p.password || '-'}</p>
                           </div>
                         </div>
 
@@ -5899,6 +5906,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Password</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Owner UID</th>
                   </tr>
                 </thead>
@@ -5915,6 +5923,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           'bg-stone-100 text-stone-700 border-stone-200'
                         }`}>{p.status}</span>
                       </td>
+                      <td className="px-6 py-4 text-xs font-mono font-semibold text-stone-700">{p.password || '-'}</td>
                       <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{p.ownerUid}</td>
                     </tr>
                   ))}
@@ -6295,6 +6304,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Password</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
                   </tr>
                 </thead>
@@ -6311,6 +6321,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           'bg-stone-100 text-stone-700 border-stone-200'
                         }`}>{p.status}</span>
                       </td>
+                      <td className="px-6 py-4 text-xs font-mono font-semibold text-stone-700">{p.password || '-'}</td>
                       <td className="px-6 py-4 text-right">
                         {p.status === 'pending' && (
                           <div className="flex items-center justify-end gap-2">
