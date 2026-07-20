@@ -10,6 +10,7 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
   const [notes, setNotes] = useState('');
   const [phone, setPhone] = useState('');
   const [institutionId, setInstitutionId] = useState('');
+  const [password, setPassword] = useState('');
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -50,10 +51,6 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
 
   const submit = async () => {
     setErrorMsg('');
-    if (!uid) {
-      alert('Sesi user tidak valid');
-      return;
-    }
     if (!name || !email || !phone || !address) {
       alert('Mohon lengkapi semua field utama (Nama, Email, Telepon, Alamat)');
       return;
@@ -62,59 +59,40 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
       alert('Mohon pilih institusi');
       return;
     }
+    if (!password) {
+      alert('Mohon buat password untuk akun partner');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      console.log('🔄 Starting partner registration for UID:', uid);
-      
-      // 1. Pre-generate partner document reference and ID
       const partnerCol = collection(db, 'partners');
       const partnerDocRef = existingPartner && isReapplying 
         ? doc(db, 'partners', existingPartner.id) 
         : doc(partnerCol);
       const partnerId = partnerDocRef.id;
       
-      console.log('📝 Partner ID:', partnerId);
-
-      // 2. Save partner registration metadata to Firestore
-      console.log('💾 Saving partner data to Firestore...');
       const partnerData: any = {
         name,
         email,
         phone,
         address,
         notes,
-        ownerUid: uid,
+        ownerUid: uid || partnerId,
         institutionId,
         status: 'pending',
+        password,
         createdAt: new Date().toISOString()
       };
       
-      console.log('📋 Partner data:', partnerData);
       await setDoc(partnerDocRef, partnerData, { merge: true });
-      console.log('✅ Partner data saved successfully!');
-
+      
       alert('✅ Permohonan pendaftaran partner berhasil dikirim! Silakan tunggu verifikasi admin.');
       setIsReapplying(false);
       onClose();
     } catch (e: any) {
-      const errorMessage = e.message || String(e);
-      console.error('❌ Error during partner registration:', e);
-      console.error('📌 Error code:', e.code);
-      console.error('📌 Error details:', e);
-      
-      // Detailed error handling
-      let userFriendlyError = '';
-      if (errorMessage.includes('permission-denied') || errorMessage.includes('PERMISSION_DENIED')) {
-        userFriendlyError = '❌ Firestore Rules memblokir akses. \n\nDI FIREBASE CONSOLE: \n1. Buka Firestore → Rules\n2. Ganti dengan:\n\nrules_version = "2";\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}';
-      } else if (errorMessage.includes('network') || errorMessage.includes('offline')) {
-        userFriendlyError = '❌ Gagal terhubung ke internet. Periksa koneksi Anda.';
-      } else {
-        userFriendlyError = `❌ Error: ${errorMessage}`;
-      }
-      
-      setErrorMsg(userFriendlyError);
-      alert(userFriendlyError);
+      console.error('Error during partner registration:', e);
+      alert('Gagal mendaftar: ' + (e.message || 'Unknown error'));
     } finally {
       setSubmitting(false);
     }
@@ -280,19 +258,30 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
             />
            </div>
 
-           <div>
-             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Institusi</label>
-             <select
-               value={institutionId}
-               onChange={(e) => setInstitutionId(e.target.value)}
-               className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all bg-white"
-             >
-               <option value="">-- Pilih Institusi --</option>
-               {institutions.map((inst: any) => (
-                 <option key={inst.id} value={inst.id}>{inst.name} ({inst.type})</option>
-               ))}
-             </select>
-           </div>
+            <div>
+              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Institusi</label>
+              <select
+                value={institutionId}
+                onChange={(e) => setInstitutionId(e.target.value)}
+                className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all bg-white"
+              >
+                <option value="">-- Pilih Institusi --</option>
+                {institutions.map((inst: any) => (
+                  <option key={inst.id} value={inst.id}>{inst.name} ({inst.type})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Password Akun Partner</label>
+              <input 
+                type="password"
+                placeholder="Buat password untuk login partner" 
+                className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+              />
+            </div>
 
            <div>
              <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Catatan Tambahan (Opsional)</label>

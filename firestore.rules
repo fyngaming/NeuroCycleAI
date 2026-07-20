@@ -66,8 +66,8 @@ service cloud.firestore {
     }
 
     match /partners/{partnerId} {
-      allow read: if isAuthenticated() && (isSuperAdmin() || isAdmin() || 
-        isInstitutionAdmin(resource.data.institutionId));
+      allow read: if isAuthenticated() && (isSuperAdmin() || isAdmin() || isPartner() || 
+        isInstitutionAdmin(resource.data.institutionId) || request.auth.uid == resource.data.ownerUid);
       allow create: if isAuthenticated() && (
         isSuperAdmin() || isAdmin() || isInstitutionAdmin(request.resource.data.institutionId) || (
           isOwner(request.resource.data.ownerUid) && 

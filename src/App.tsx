@@ -90,6 +90,7 @@ import { MapContainer } from './components/MapContainer';
 import { DailyMissions } from './components/DailyMissions';
 import UserQR from './components/UserQR';
 import PartnerOnboarding from './components/PartnerOnboarding';
+import PartnerSelfSubmit from './components/PartnerSelfSubmit';
 import PartnerDashboard from './components/PartnerDashboard';
 import PartnerTransactionSubmit from './components/PartnerTransactionSubmit';
 import UserDepositSubmit from './components/UserDepositSubmit';
@@ -102,7 +103,7 @@ import QuizScreen from './components/QuizScreen';
 type AppState =
   | 'login' | 'welcome' | 'main' | 'scanning' | 'result'
   | 'user_dashboard' | 'redemption' | 'education_list' | 'education_detail'
-  | 'map' | 'about' | 'scan_options' | 'admin_dashboard' | 'super_admin_dashboard' | 'institution_admin_dashboard'
+  | 'map' | 'about' | 'scan_options' | 'admin_dashboard' | 'super_admin_dashboard' | 'institution_admin_dashboard' | 'partner_dashboard'
   | 'waste_bank_list' | 'waste_bank_calculate' | 'waste_bank_verify'
   | 'daily_missions' | 'institution_setup'
   | 'quiz';
@@ -515,10 +516,11 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
   onShowPartnerTx: () => void,
   onShowUserDeposit?: () => void,
 }) => {
-  const [activeTab, setActiveTab] = useState<'scan' | 'deposit' | 'claim'>('scan');
+  const [activeTab, setActiveTab] = useState<'scan' | 'deposit' | 'claim' | 'transactions'>('scan');
   const [filterDay, setFilterDay] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
+  const [userTransactions, setUserTransactions] = useState<any[]>([]);
 
   const filteredScanHistory = useMemo(() => {
     const history = userData.scanHistory || [];
@@ -544,6 +546,16 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
       return match;
     });
   }, [userData.scanHistory, filterDay, filterMonth, filterYear]);
+
+  useEffect(() => {
+    if (!userData.uid) return;
+    const q = query(collection(db, 'transactions'), where('userUid', '==', userData.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const txs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUserTransactions(txs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    });
+    return () => unsub();
+  }, [userData.uid]);
 
   return (
     <motion.div
@@ -633,6 +645,12 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
           className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'claim' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
         >
           Klaim
+        </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'transactions' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
+        >
+          Transaksi
         </button>
       </div>
 
@@ -796,6 +814,57 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
                         'bg-amber-50 text-amber-600'
                       }`}>
                         {claim.status === 'Success' ? 'Diterima' : claim.status === 'Rejected' ? 'Ditolak' : 'Menunggu'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <motion.div
+            key="transactions-tab"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            className="space-y-6"
+          >
+            <h3 className="font-display font-bold text-stone-800 px-1">Riwayat Transaksi</h3>
+            <div className="space-y-4">
+              {userTransactions.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-[40px] border border-dashed border-stone-200">
+                  <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-300">
+                    <Activity size={32} />
+                  </div>
+                  <p className="text-stone-400 text-sm font-medium">Belum ada transaksi.</p>
+                </div>
+              ) : (
+                userTransactions.map((tx: any) => (
+                  <div key={tx.id} className="bg-white p-5 rounded-4xl border border-stone-100 shadow-sm flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      tx.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
+                      tx.status === 'pending' ? 'bg-amber-50 text-amber-500' :
+                      tx.status === 'rejected' ? 'bg-red-50 text-red-400' :
+                      'bg-stone-50 text-stone-400'
+                    }`}>
+                      <Activity size={24} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-stone-800 text-sm">{tx.partnerName || 'Partner'}</h4>
+                      <p className="text-[9px] text-stone-400 font-medium mt-0.5 capitalize">{tx.category || '-'} • {tx.totalWeight || tx.weight || 0} kg</p>
+                      <p className="text-[9px] text-stone-400">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('id-ID') : '-'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-emerald-600">+{tx.totalPoints || 0} NP</p>
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full mt-1 inline-block ${
+                        tx.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                        tx.status === 'pending' ? 'bg-amber-50 text-amber-600' :
+                        tx.status === 'rejected' ? 'bg-red-50 text-red-500' :
+                        'bg-stone-50 text-stone-500'
+                      }`}>
+                        {tx.status}
                       </span>
                     </div>
                   </div>
@@ -1565,9 +1634,9 @@ const WasteBankList = ({
                         Est. {((selectedItems[category.id] || 0) * category.pointsPerKg).toLocaleString()} Poin
                       </span>
                     </div>
-                  </motion.div>
-                )}
-              </motion.div>
+          </motion.div>
+        )}
+               </motion.div>
             );
           })}
         </div>
@@ -2068,8 +2137,8 @@ const NotificationModal = ({
   );
 };
 
-const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdminLogin, onInstAdminRegister }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void, onInstAdminLogin: (email: string, password: string) => void, onInstAdminRegister: (email: string, password: string, institutionCode: string) => Promise<boolean> }) => {
-  const [activeTab, setActiveTab] = useState<'user' | 'admin' | 'super_admin' | 'inst_admin'>('user');
+const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdminLogin, onInstAdminRegister, onPartnerLogin }: { onGoogleLogin: () => void, onAdminLogin: (u: string, p: string) => void, onSuperAdminLogin: (email: string, password: string) => void, onInstAdminLogin: (email: string, password: string) => void, onInstAdminRegister: (email: string, password: string, institutionCode: string) => Promise<boolean>, onPartnerLogin: (email: string, password: string) => void }) => {
+  const [activeTab, setActiveTab] = useState<'user' | 'partner' | 'admin' | 'super_admin' | 'inst_admin'>('user');
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [superEmail, setSuperEmail] = useState('');
@@ -2077,8 +2146,11 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
   const [instEmail, setInstEmail] = useState('');
   const [instPassword, setInstPassword] = useState('');
   const [instCode, setInstCode] = useState('');
+  const [partnerEmail, setPartnerEmail] = useState('');
+  const [partnerPassword, setPartnerPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [instMode, setInstMode] = useState<'login' | 'register'>('login');
+  const [showPartnerSelfSubmit, setShowPartnerSelfSubmit] = useState(false);
   const [showInstList, setShowInstList] = useState(false);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [loadingInst, setLoadingInst] = useState(false);
@@ -2095,6 +2167,7 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
 
   const tabs = [
     { id: 'user', label: 'User', color: 'emerald' },
+    { id: 'partner', label: 'Partner', color: 'teal' },
     { id: 'admin', label: 'Admin', color: 'emerald' },
     { id: 'super_admin', label: 'Super Admin', color: 'amber' },
     { id: 'inst_admin', label: 'Institution Admin', color: 'blue' },
@@ -2124,14 +2197,15 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
         </p>
 
         {/* Tab selector */}
-        <div className="w-full grid grid-cols-4 gap-1 bg-stone-800/50 p-1 rounded-2xl mb-6">
+        <div className="w-full grid grid-cols-5 gap-1 bg-stone-800/50 p-1 rounded-2xl mb-6">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-2.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`py-2.5 px-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                 activeTab === tab.id
                   ? tab.id === 'user' ? 'bg-emerald-600 text-white shadow-lg' :
+                    tab.id === 'partner' ? 'bg-teal-600 text-white shadow-lg' :
                     tab.id === 'admin' ? 'bg-emerald-600 text-white shadow-lg' :
                     tab.id === 'super_admin' ? 'bg-amber-600 text-white shadow-lg' :
                     'bg-blue-600 text-white shadow-lg'
@@ -2156,6 +2230,56 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
             >
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
               Lanjutkan dengan Google
+            </button>
+          </motion.div>
+        )}
+
+        {/* Partner Tab */}
+        {activeTab === 'partner' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full space-y-4"
+          >
+            <input
+              type="email"
+              placeholder="Partner Email"
+              value={partnerEmail}
+              onChange={(e) => setPartnerEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onPartnerLogin(partnerEmail, partnerPassword)}
+              className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 border border-stone-700"
+            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Partner Password"
+                value={partnerPassword}
+                onChange={(e) => setPartnerPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onPartnerLogin(partnerEmail, partnerPassword)}
+                className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 border border-stone-700"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            <button
+              onClick={() => onPartnerLogin(partnerEmail, partnerPassword)}
+              className="w-full bg-teal-600 text-white font-bold py-4 rounded-2xl hover:bg-teal-700 shadow-lg shadow-teal-900/20 active:scale-95 transition-all"
+            >
+              Masuk sebagai Partner
+            </button>
+            <p className="text-[10px] text-stone-500 text-center">
+              Belum punya akun? Daftar sebagai partner baru.
+            </p>
+            <button
+              onClick={() => setShowPartnerSelfSubmit(true)}
+              className="w-full py-3 text-teal-400 text-xs font-bold uppercase tracking-widest hover:text-teal-300 transition-colors"
+            >
+              Daftar sebagai Partner Baru
             </button>
           </motion.div>
         )}
@@ -2418,6 +2542,16 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
             </AnimatePresence>
           </motion.div>
         )}
+
+        {/* Partner Self-Submit Modal */}
+        <AnimatePresence>
+          {showPartnerSelfSubmit && (
+            <PartnerSelfSubmit
+              onClose={() => setShowPartnerSelfSubmit(false)}
+              onSuccess={() => setShowPartnerSelfSubmit(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
@@ -6194,6 +6328,7 @@ export default function App() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState('');
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [partnerData, setPartnerData] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [userData, setUserData] = useState<UserData>({
     email: '',
@@ -6460,6 +6595,37 @@ export default function App() {
       console.error('Register institution admin failed:', e);
       alert('Gagal mendaftar sebagai institution admin.');
       return false;
+    }
+  };
+
+  const handlePartnerLogin = async (email: string, password: string) => {
+    try {
+      const q = query(collection(db, 'partners'), where('email', '==', email));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        alert('Akun partner tidak ditemukan.');
+        return;
+      }
+
+      const partnerDoc = snap.docs[0];
+      const partnerData = partnerDoc.data();
+
+      if (partnerData.password !== password) {
+        alert('Password salah!');
+        return;
+      }
+
+      if (partnerData.status !== 'approved') {
+        alert('Akun partner belum disetujui oleh admin institusi.');
+        return;
+      }
+
+      setPartnerData({ id: partnerDoc.id, ...partnerData });
+      setState('partner_dashboard');
+    } catch (e) {
+      console.error('Partner login failed:', e);
+      alert('Gagal login sebagai partner.');
     }
   };
 
@@ -6878,6 +7044,7 @@ export default function App() {
             onSuperAdminLogin={handleSuperAdminLogin}
             onInstAdminLogin={handleInstAdminLogin}
             onInstAdminRegister={handleInstAdminRegister}
+            onPartnerLogin={handlePartnerLogin}
           />
         )}
         {state === 'admin_dashboard' && (
@@ -6909,6 +7076,17 @@ export default function App() {
                 if (window.confirm("Apakah anda yakin ingin logout dari panel Institution Admin?")) {
                   await handleLogout();
                 }
+              }}
+            />
+          </div>
+        )}
+        {state === 'partner_dashboard' && partnerData && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
+            <PartnerDashboard
+              uid={partnerData.id}
+              onClose={() => {
+                setPartnerData(null);
+                setState('login');
               }}
             />
           </div>
