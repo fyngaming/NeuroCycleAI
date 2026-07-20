@@ -6946,13 +6946,11 @@ export default function App() {
       if (currentUser) {
         const userRef = doc(db, 'users', currentUser.uid);
 
-        // Listen for real-time updates
         unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
-          setIsInitializing(true); // Pastikan loading aktif saat ambil data
+          setIsInitializing(true);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
 
-            // Check if user is banned
             if (data.isBanned) {
               alert("Akun Anda telah ditangguhkan oleh Admin karena pelanggaran kebijakan.");
               await signOut(auth);
@@ -6981,7 +6979,6 @@ export default function App() {
               notifications: updatedData.notifications || []
             });
 
-            // Update streak harian otomatis saat login
             const todayStr = new Date().toDateString();
             const lastLoginStr = updatedData.lastLogin || '';
             const yesterdayStr = new Date(Date.now() - 86400000).toDateString();
@@ -6991,16 +6988,12 @@ export default function App() {
               setDoc(userRefStreak, { streak: newStreak, lastLogin: todayStr }, { merge: true });
             }
 
-            // Jika user berhasil login dari halaman login, tunjukkan welcome screen dulu.
-            // Tapi jangan redirect jika sedang di admin_dashboard
-            // Cek apakah user sudah punya institutionId
-            if (!updatedData.institutionId && state !== 'institution_setup') {
+            if (!updatedData.institutionId) {
               setState('institution_setup');
             } else {
-              setState(prev => (prev === 'admin_dashboard' ? 'admin_dashboard' : prev === 'login' ? 'welcome' : prev));
+              setState('welcome');
             }
           } else {
-            // New User Initialization
             const initialData: UserData = {
               ...userData,
               uid: currentUser.uid,
@@ -7013,16 +7006,14 @@ export default function App() {
             };
             await setDoc(userRef, initialData);
             setUserData(initialData);
-            setState(prev => prev === 'admin_dashboard' ? 'admin_dashboard' : 'institution_setup');
+            setState('institution_setup');
           }
-          // Selesaikan inisialisasi hanya setelah data Firestore tersedia
           setIsInitializing(false);
         }, (error) => {
           console.error("Firestore snapshot error:", error);
           alert("Gagal memuat data pengguna (Firestore Error): " + error.message);
           setIsInitializing(false);
         });
-
       } else {
         if (unsubscribeSnapshot) unsubscribeSnapshot();
         setState('login');
