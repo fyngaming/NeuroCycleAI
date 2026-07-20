@@ -2151,9 +2151,60 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
   const [showPassword, setShowPassword] = useState(false);
   const [instMode, setInstMode] = useState<'login' | 'register'>('login');
   const [showPartnerSelfSubmit, setShowPartnerSelfSubmit] = useState(false);
+  const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
+  const [setPasswordEmail, setSetPasswordEmail] = useState('');
+  const [setPasswordValue, setSetPasswordValue] = useState('');
+  const [setPasswordConfirm, setSetPasswordConfirm] = useState('');
   const [showInstList, setShowInstList] = useState(false);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [loadingInst, setLoadingInst] = useState(false);
+
+  const handleSetPassword = async () => {
+    if (!setPasswordEmail.trim() || !setPasswordValue || !setPasswordConfirm) {
+      alert('Semua field harus diisi!');
+      return;
+    }
+    if (setPasswordValue !== setPasswordConfirm) {
+      alert('Password dan konfirmasi password tidak cocok!');
+      return;
+    }
+    if (setPasswordValue.length < 6) {
+      alert('Password minimal 6 karakter!');
+      return;
+    }
+
+    try {
+      const q = query(collection(db, 'partners'), where('email', '==', setPasswordEmail.trim()));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        alert('Akun partner dengan email tersebut tidak ditemukan!');
+        return;
+      }
+
+      const partnerDoc = snap.docs[0];
+      const partnerData = partnerDoc.data();
+
+      if (partnerData.password) {
+        alert('Akun ini sudah memiliki password. Silakan login dengan password yang ada.');
+        setShowSetPasswordModal(false);
+        return;
+      }
+
+      await updateDoc(doc(db, 'partners', partnerDoc.id), {
+        password: setPasswordValue
+      });
+
+      alert('Password berhasil diatur! Silakan login dengan email dan password yang baru.');
+      setShowSetPasswordModal(false);
+      setSetPasswordEmail('');
+      setSetPasswordValue('');
+      setSetPasswordConfirm('');
+    } catch (e) {
+      console.error('Gagal set password:', e);
+      alert('Gagal mengatur password.');
+    }
+  };
 
   useEffect(() => {
     if (!showInstList) return;
@@ -2280,6 +2331,12 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
               className="w-full py-3 text-teal-400 text-xs font-bold uppercase tracking-widest hover:text-teal-300 transition-colors"
             >
               Daftar sebagai Partner Baru
+            </button>
+            <button
+              onClick={() => setShowSetPasswordModal(true)}
+              className="w-full py-3 text-stone-400 text-xs font-bold uppercase tracking-widest hover:text-stone-300 transition-colors"
+            >
+              Atur Password (Partner Lama)
             </button>
           </motion.div>
         )}
@@ -2550,6 +2607,66 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
               onClose={() => setShowPartnerSelfSubmit(false)}
               onSuccess={() => setShowPartnerSelfSubmit(false)}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Set Password Modal for Old Partners */}
+        <AnimatePresence>
+          {showSetPasswordModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+              onClick={() => setShowSetPasswordModal(false)}
+            >
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-display font-black text-stone-900">Atur Password Partner</h3>
+                  <button onClick={() => setShowSetPasswordModal(false)} className="p-2 hover:bg-stone-100 rounded-xl">
+                    <X size={20} className="text-stone-600" />
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500 mb-4">
+                  Untuk partner lama yang belum memiliki password. Masukkan email partner dan buat password baru.
+                </p>
+                <div className="space-y-3">
+                  <input
+                    type="email"
+                    placeholder="Email Partner"
+                    value={setPasswordEmail}
+                    onChange={(e) => setSetPasswordEmail(e.target.value)}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password Baru"
+                    value={setPasswordValue}
+                    onChange={(e) => setSetPasswordValue(e.target.value)}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Konfirmasi Password"
+                    value={setPasswordConfirm}
+                    onChange={(e) => setSetPasswordConfirm(e.target.value)}
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                  />
+                  <button
+                    onClick={handleSetPassword}
+                    className="w-full py-3 bg-teal-600 text-white rounded-2xl font-bold hover:bg-teal-700 transition-all"
+                  >
+                    Simpan Password
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -6767,6 +6884,11 @@ export default function App() {
 
       const partnerDoc = snap.docs[0];
       const partnerData = partnerDoc.data();
+
+      if (!partnerData.password) {
+        alert('Akun partner ini belum memiliki password. Akun ini dibuat sebelum sistem password diaktifkan. Silakan klik "Atur Password" di bawah form login untuk membuat password baru.');
+        return;
+      }
 
       if (partnerData.password !== password) {
         alert('Password salah!');
