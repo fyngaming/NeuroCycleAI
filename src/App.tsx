@@ -599,98 +599,83 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.05 }}
-      className="p-6 pb-40"
+      className="p-6 pb-40 min-h-screen bg-stone-900"
     >
       <header className="mb-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-display font-black text-stone-900">Dashboard Saya</h2>
-            <p className="text-sm text-stone-500 mt-1">Kelola setoran dan akses partner bank sampah.</p>
+            <h2 className="text-2xl font-display font-black text-white">Dashboard Saya</h2>
+            <p className="text-sm text-stone-400 mt-1">Kelola setoran dan akses partner bank sampah.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={onShowQR}
-              className="flex items-center gap-2 py-2 px-4 bg-stone-100 rounded-3xl text-stone-800 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-stone-200 active:scale-95 transition-all">
+              className="flex items-center gap-2 py-2 px-4 bg-stone-800 rounded-3xl text-stone-200 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-stone-700 active:scale-95 transition-all border border-stone-700">
               <span className="text-base">🪪</span>
               My QR
             </button>
             {isPartner ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-3xl text-amber-700 font-semibold text-xs uppercase tracking-[0.18em] border border-amber-100">
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-900/30 rounded-3xl text-amber-400 font-semibold text-xs uppercase tracking-[0.18em] border border-amber-700">
                 <span className="text-base">⚠️</span>
                 Akun ini sudah terdaftar sebagai Partner
               </div>
             ) : userData.role === 'partner' ? (
               <>
                 <button type="button" onClick={onShowPartnerTx}
-                  className="flex items-center gap-2 py-2 px-4 bg-teal-50 rounded-3xl text-teal-700 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-teal-100 active:scale-95 transition-all border border-teal-100">
+                  className="flex items-center gap-2 py-2 px-4 bg-teal-900/30 rounded-3xl text-teal-400 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-teal-800/30 active:scale-95 transition-all border border-teal-700">
                   <span className="text-base">➕</span>
                   Kirim Setoran
                 </button>
-                <button type="button" onClick={onShowPartner}
-                  className="flex items-center gap-2 py-2 px-4 bg-emerald-600 rounded-3xl text-white font-semibold text-xs uppercase tracking-[0.18em] hover:bg-emerald-700 active:scale-95 transition-all shadow-lg shadow-emerald-200/50">
-                  <span className="text-base">📊</span>
-                  Partner Dashboard
-                </button>
               </>
             ) : (
-              <button type="button" onClick={onShowPartner}
-                className="flex items-center gap-2 py-2 px-4 bg-emerald-50 rounded-3xl text-emerald-700 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-emerald-100 active:scale-95 transition-all border border-emerald-100">
-                <span className="text-base">🏢</span>
-                Daftar Partner
-              </button>
+              null
             )}
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="rounded-4xl bg-amber-100 px-5 py-3 text-amber-800 font-bold inline-flex items-center gap-2 shadow-sm shadow-amber-200/40">
-            <Coins size={18} /> {userData.points.toLocaleString()} NP
           </div>
         </div>
       </header>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 mb-10">
-        <div className="bg-white p-5 rounded-4xl border border-stone-100 shadow-sm relative overflow-hidden group">
-          <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-emerald-50 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-3 relative z-10">
+        <div className="bg-stone-800 p-5 rounded-4xl border border-stone-700 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-emerald-900/40 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+          <div className="w-10 h-10 bg-emerald-900/40 rounded-xl flex items-center justify-center text-emerald-400 mb-3 relative z-10">
             <Camera size={20} />
           </div>
-          <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest relative z-10">Total Aktivitas</p>
-          <h4 className="text-2xl font-display font-bold text-stone-800 relative z-10">{userData.scans + (userData.depositHistory?.length || 0)}</h4>
+          <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest relative z-10">Total Aktivitas</p>
+          <h4 className="text-2xl font-display font-bold text-white relative z-10">{userData.scans + (userData.depositHistory?.length || 0)}</h4>
         </div>
-        <div className="bg-white p-5 rounded-4xl border border-stone-100 shadow-sm relative overflow-hidden group">
-          <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-orange-50 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-          <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 mb-3 relative z-10">
+        <div className="bg-stone-800 p-5 rounded-4xl border border-stone-700 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-orange-900/40 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+          <div className="w-10 h-10 bg-orange-900/40 rounded-xl flex items-center justify-center text-orange-400 mb-3 relative z-10">
             <Award size={20} />
           </div>
-          <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest relative z-10">Level</p>
-          <h4 className="text-lg font-bold text-stone-800 truncate relative z-10">{userData.level}</h4>
+          <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest relative z-10">Level</p>
+          <h4 className="text-lg font-bold text-white truncate relative z-10">{userData.level}</h4>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-stone-100 p-1.5 rounded-3xl mb-8 overflow-x-auto hide-scrollbar">
+      <div className="flex bg-stone-800 p-1.5 rounded-3xl mb-8 overflow-x-auto hide-scrollbar border border-stone-700">
         <button
           onClick={() => setActiveTab('scan')}
-          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'scan' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
+          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'scan' ? 'bg-stone-700 text-emerald-400 shadow-sm' : 'text-stone-500'}`}
         >
           Scan
         </button>
         <button
           onClick={() => setActiveTab('deposit')}
-          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'deposit' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
+          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'deposit' ? 'bg-stone-700 text-emerald-400 shadow-sm' : 'text-stone-500'}`}
         >
           Setor
         </button>
         <button
           onClick={() => setActiveTab('claim')}
-          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'claim' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
+          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'claim' ? 'bg-stone-700 text-emerald-400 shadow-sm' : 'text-stone-500'}`}
         >
           Klaim
         </button>
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'transactions' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400'}`}
+          className={`flex-1 min-w-20 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'transactions' ? 'bg-stone-700 text-emerald-400 shadow-sm' : 'text-stone-500'}`}
         >
           Transaksi
         </button>
@@ -706,24 +691,24 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
             className="space-y-6"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-stone-800">Riwayat Scan</h3>
+              <h3 className="font-display font-bold text-white">Riwayat Scan</h3>
               <div className="flex gap-1.5">
                 <input
                   type="number" placeholder="DD" value={filterDay}
                   onChange={(e) => setFilterDay(e.target.value)}
-                  className="text-[10px] w-10 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-center focus:ring-1 focus:ring-emerald-500 outline-none"
+                  className="text-[10px] w-10 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-center focus:ring-1 focus:ring-emerald-500 outline-none text-stone-200"
                 />
                 <input
                   type="number" placeholder="MM" value={filterMonth}
                   onChange={(e) => setFilterMonth(e.target.value)}
-                  className="text-[10px] w-10 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-center focus:ring-1 focus:ring-emerald-500 outline-none"
+                  className="text-[10px] w-10 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-center focus:ring-1 focus:ring-emerald-500 outline-none text-stone-200"
                 />
               </div>
             </div>
 
             <div className="space-y-4">
               {filteredScanHistory.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-[40px] border border-dashed border-stone-200">
+                <div className="text-center py-16 bg-stone-800 rounded-[40px] border border-dashed border-stone-700">
                   <p className="text-stone-400 text-sm italic">Belum ada riwayat scan...</p>
                 </div>
               ) : (
@@ -731,22 +716,22 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
                   <motion.div
                     key={item.id}
                     layout
-                    className="bg-white p-4 rounded-4xl border border-stone-100 shadow-sm flex items-center gap-4 group"
+                    className="bg-stone-800 p-4 rounded-4xl border border-stone-700 shadow-sm flex items-center gap-4 group"
                   >
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-stone-50 border border-stone-100 shrink-0">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-stone-700 border border-stone-600 shrink-0">
                       {item.image ? (
                         <img src={item.image} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-stone-300"><Trash2 size={24} /></div>
+                        <div className="w-full h-full flex items-center justify-center text-stone-500"><Trash2 size={24} /></div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-stone-800 text-sm truncate">{item.name}</h4>
+                      <h4 className="font-bold text-white text-sm truncate">{item.name}</h4>
                       <p className="text-[9px] text-stone-400 font-medium">{item.date}</p>
                     </div>
                     <button
                       onClick={() => onDeleteHistory(item.id)}
-                      className="w-10 h-10 rounded-xl bg-red-50 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="w-10 h-10 rounded-xl bg-red-900/30 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -765,42 +750,42 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            <h3 className="font-display font-bold text-stone-800 px-1">Riwayat Setor Sampah</h3>
+            <h3 className="font-display font-bold text-white px-1">Riwayat Setor Sampah</h3>
             <div className="space-y-4">
               {(!userData.depositHistory || userData.depositHistory.length === 0) ? (
-                <div className="text-center py-16 bg-white rounded-[40px] border border-dashed border-stone-200">
-                  <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-300">
-                    <Recycle size={32} />
+                  <div className="text-center py-16 bg-stone-800 rounded-[40px] border border-dashed border-stone-700">
+                    <div className="w-16 h-16 bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-400">
+                      <Recycle size={32} />
+                    </div>
+                    <p className="text-stone-400 text-sm font-medium">Belum ada setoran sampah.</p>
                   </div>
-                  <p className="text-stone-400 text-sm font-medium">Belum ada setoran sampah.</p>
-                </div>
-              ) : (
-                userData.depositHistory.map((deposit) => (
-                  <div
-                    key={deposit.id}
-                    className="bg-white p-5 rounded-4xl border border-stone-100 shadow-sm"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${deposit.status === 'Pending' ? 'text-amber-600' : deposit.status === 'Approved' ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {deposit.status === 'Pending' ? 'Pengajuan Menunggu' : deposit.status === 'Approved' ? 'Setoran Disetujui' : 'Setoran Ditolak'}
-                        </p>
-                        <h4 className="font-bold text-stone-800 text-sm">{deposit.date}</h4>
+                ) : (
+                  userData.depositHistory.map((deposit) => (
+                    <div
+                      key={deposit.id}
+                      className="bg-stone-800 p-5 rounded-4xl border border-stone-700 shadow-sm"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${deposit.status === 'Pending' ? 'text-amber-400' : deposit.status === 'Approved' ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {deposit.status === 'Pending' ? 'Pengajuan Menunggu' : deposit.status === 'Approved' ? 'Setoran Disetujui' : 'Setoran Ditolak'}
+                          </p>
+                          <h4 className="font-bold text-white text-sm">{deposit.date}</h4>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-display font-bold ${deposit.status === 'Approved' ? 'text-emerald-400' : deposit.status === 'Pending' ? 'text-amber-400' : 'text-red-400'}`}>
+                            +{deposit.totalPoints} NP
+                          </p>
+                          <p className="text-[9px] text-stone-400 font-bold uppercase">{deposit.totalWeight.toFixed(1)} kg</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-display font-bold ${deposit.status === 'Approved' ? 'text-emerald-600' : deposit.status === 'Pending' ? 'text-amber-600' : 'text-red-600'}`}>
-                          +{deposit.totalPoints} NP
-                        </p>
-                        <p className="text-[9px] text-stone-400 font-bold uppercase">{deposit.totalWeight.toFixed(1)} kg</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {deposit.items.map((item, idx) => (
+                          <span key={idx} className="px-3 py-1 bg-stone-700 rounded-full text-[9px] font-bold text-stone-300 border border-stone-600">
+                            {item.category}: {item.weight}kg
+                          </span>
+                        ))}
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {deposit.items.map((item, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-stone-50 rounded-full text-[9px] font-bold text-stone-500 border border-stone-100">
-                          {item.category}: {item.weight}kg
-                        </span>
-                      ))}
-                    </div>
                   </div>
                 ))
               )}
@@ -819,8 +804,8 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
             <h3 className="font-display font-bold text-stone-800 px-1">Riwayat Hadiah</h3>
             <div className="space-y-4">
               {(!userData.claimHistory || userData.claimHistory.length === 0) ? (
-                <div className="text-center py-16 bg-white rounded-[40px] border border-dashed border-stone-200">
-                  <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-300">
+                <div className="text-center py-16 bg-stone-800 rounded-[40px] border border-dashed border-stone-700">
+                  <div className="w-16 h-16 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-400">
                     <Award size={32} />
                   </div>
                   <p className="text-stone-400 text-sm font-medium">Belum ada hadiah diklaim.</p>
@@ -829,31 +814,31 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
                 userData.claimHistory.map((claim) => (
                   <div
                     key={claim.id}
-                    className="bg-white p-5 rounded-4xl border border-stone-100 shadow-sm flex items-center gap-4"
+                    className="bg-stone-800 p-5 rounded-4xl border border-stone-700 shadow-sm flex items-center gap-4"
                   >
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                      claim.status === 'Success' ? 'bg-emerald-50 text-emerald-500' :
-                      claim.status === 'Rejected' ? 'bg-red-50 text-red-400' :
-                      'bg-amber-50 text-amber-500'
+                      claim.status === 'Success' ? 'bg-emerald-900/30 text-emerald-400' :
+                      claim.status === 'Rejected' ? 'bg-red-900/30 text-red-400' :
+                      'bg-amber-900/30 text-amber-400'
                     }`}>
                       <Sparkles size={24} />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-stone-800 text-sm">{claim.title}</h4>
+                      <h4 className="font-bold text-white text-sm">{claim.title}</h4>
                       <p className="text-[9px] text-stone-400 font-medium mt-0.5">{claim.date}</p>
                     </div>
                     <div className="text-right">
                       <p className={`text-xs font-bold ${
                         claim.status === 'Success' ? 'text-stone-400 line-through' :
                         claim.status === 'Rejected' ? 'text-red-400 line-through' :
-                        'text-amber-600'
+                        'text-amber-400'
                       }`}>
                         {claim.status === 'Pending' ? '-' : ''}{claim.points.toLocaleString()} NP
                       </p>
                       <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full mt-1 inline-block ${
-                        claim.status === 'Success' ? 'bg-emerald-50 text-emerald-600' :
-                        claim.status === 'Rejected' ? 'bg-red-50 text-red-500' :
-                        'bg-amber-50 text-amber-600'
+                        claim.status === 'Success' ? 'bg-emerald-900/30 text-emerald-400' :
+                        claim.status === 'Rejected' ? 'bg-red-900/30 text-red-400' :
+                        'bg-amber-900/30 text-amber-400'
                       }`}>
                         {claim.status === 'Success' ? 'Diterima' : claim.status === 'Rejected' ? 'Ditolak' : 'Menunggu'}
                       </span>
@@ -6818,7 +6803,6 @@ export default function App() {
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      setState('welcome');
     } catch (error: any) {
       console.error("Login failed:", error?.code, error?.message);
       alert("Gagal login dengan Google. Error: " + (error?.code || error?.message || 'Unknown'));
@@ -7367,7 +7351,7 @@ export default function App() {
 
   // Main UI Render
   return (
-    <div className="min-h-screen bg-stone-50 pb-32 max-w-md mx-auto">
+    <div className={`min-h-screen pb-32 max-w-md mx-auto ${state === 'login' ? 'bg-stone-900' : 'bg-stone-50'}`}>
       <AnimatePresence mode="wait">
         {state === 'login' && (
           <LoginScreen
