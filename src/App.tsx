@@ -521,6 +521,43 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [userTransactions, setUserTransactions] = useState<any[]>([]);
+  const [isPartner, setIsPartner] = useState(false);
+  const [partnerDoc, setPartnerDoc] = useState<any>(null);
+
+  useEffect(() => {
+    if (!userData.uid) return;
+    const checkPartner = async () => {
+      const q1 = query(collection(db, 'partners'), where('ownerUid', '==', userData.uid));
+      const snap1 = await getDocs(q1);
+      if (!snap1.empty) {
+        setIsPartner(true);
+        setPartnerDoc(snap1.docs[0].data());
+        return;
+      }
+      const q2 = query(collection(db, 'partners'), where('email', '==', userData.email));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        setIsPartner(true);
+        setPartnerDoc(snap2.docs[0].data());
+      }
+    };
+    checkPartner();
+  }, [userData.uid, userData.email]);
+
+  useEffect(() => {
+    if (isPartner && partnerDoc) {
+      const partnerNotification: NotificationItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: 'Akun Terdaftar sebagai Partner',
+        message: `Akun Google ini (${userData.email}) sudah terdaftar sebagai Partner: ${partnerDoc.name}. Silakan login melalui menu Partner untuk mengakses dashboard partner.`,
+        date: new Date().toLocaleString('id-ID'),
+        type: 'warning',
+        isRead: false
+      };
+      const updatedNotifications = [partnerNotification, ...(userData.notifications || [])];
+      saveUserData({ ...userData, notifications: updatedNotifications });
+    }
+  }, [isPartner, partnerDoc, userData.email, userData, saveUserData]);
 
   const filteredScanHistory = useMemo(() => {
     const history = userData.scanHistory || [];
@@ -576,7 +613,12 @@ const UserDashboard = ({ userData, onPointsClick, onBack, onDeleteHistory, saveU
               <span className="text-base">🪪</span>
               My QR
             </button>
-            {userData.role === 'partner' ? (
+            {isPartner ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-3xl text-amber-700 font-semibold text-xs uppercase tracking-[0.18em] border border-amber-100">
+                <span className="text-base">⚠️</span>
+                Akun ini sudah terdaftar sebagai Partner
+              </div>
+            ) : userData.role === 'partner' ? (
               <>
                 <button type="button" onClick={onShowPartnerTx}
                   className="flex items-center gap-2 py-2 px-4 bg-teal-50 rounded-3xl text-teal-700 font-semibold text-xs uppercase tracking-[0.18em] hover:bg-teal-100 active:scale-95 transition-all border border-teal-100">
