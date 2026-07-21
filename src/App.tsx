@@ -7361,7 +7361,7 @@ export default function App() {
 
   // Main UI Render
   return (
-    <div className="min-h-screen bg-stone-900 pb-32 max-w-md mx-auto">
+    <div className={`min-h-screen pb-32 max-w-md mx-auto ${state === 'login' ? 'bg-stone-900' : 'bg-stone-50'}`}>
       <AnimatePresence mode="wait">
         {state === 'login' && (
           <LoginScreen
