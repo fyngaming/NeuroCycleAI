@@ -50,7 +50,7 @@ const buildDepositSummary = (tx: any) => {
   return { items, totalWeight, totalPoints };
 };
 
-const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void }) => {
+const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId?: string; onClose: () => void }) => {
   const [partner, setPartner] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
   const [offlineTxsList, setOfflineTxsList] = useState<any[]>([]);
@@ -67,18 +67,20 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
   const [showAddTx, setShowAddTx] = useState(false);
 
   useEffect(() => {
-    if (!uid) return;
-    const q = query(collection(db, 'partners'), where('ownerUid', '==', uid));
+    if (!partnerId && !uid) return;
+    const q = partnerId
+      ? query(collection(db, 'partners'), where('__name__', '==', partnerId))
+      : query(collection(db, 'partners'), where('ownerUid', '==', uid));
     const unsub = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setPartner(docs[0] || null);
     });
     return () => unsub();
-  }, [uid]);
+  }, [uid, partnerId]);
 
   useEffect(() => {
-    if (!uid) return;
-    const q = query(collection(db, 'transactions'), where('partnerUid', '==', uid));
+    if (!partnerId) return;
+    const q = query(collection(db, 'transactions'), where('partnerUid', '==', partnerId));
     const unsub = onSnapshot(q, (snap) => {
       const allTxs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const partnerInstitutionId = partner?.institutionId;
@@ -88,7 +90,7 @@ const PartnerDashboard = ({ uid, onClose }: { uid?: string; onClose: () => void 
       setTxs(filtered.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     });
     return () => unsub();
-  }, [uid, partner?.institutionId]);
+  }, [partnerId, partner?.institutionId]);
 
   // Load offline transactions on mount
   useEffect(() => {

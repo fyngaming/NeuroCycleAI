@@ -7373,7 +7373,7 @@ export default function App() {
         {state === 'partner_dashboard' && partnerData && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
             <PartnerDashboard
-              uid={partnerData.id}
+              partnerId={partnerData.id}
               onClose={() => {
                 setPartnerData(null);
                 setState('login');
