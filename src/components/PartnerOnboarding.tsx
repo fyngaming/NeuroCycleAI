@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, setDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, XCircle, Search, Building2 } from 'lucide-react';
 
 const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void }) => {
   const [name, setName] = useState('');
@@ -10,15 +10,18 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
   const [notes, setNotes] = useState('');
   const [phone, setPhone] = useState('');
   const [institutionId, setInstitutionId] = useState('');
+  const [institutionCodeInput, setInstitutionCodeInput] = useState('');
   const [password, setPassword] = useState('');
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [instSearch, setInstSearch] = useState('');
 
   // States for checking existing registration status
   const [existingPartner, setExistingPartner] = useState<any>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [isReapplying, setIsReapplying] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   useEffect(() => {
     if (!uid) {
@@ -48,6 +51,31 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
     };
     fetchInstitutions();
   }, []);
+
+  const verifyInstitutionCode = async () => {
+    if (!institutionCodeInput.trim()) {
+      alert('Masukkan kode institusi terlebih dahulu!');
+      return;
+    }
+    setVerifyingCode(true);
+    try {
+      const q = query(collection(db, 'institutions'), where('code', '==', institutionCodeInput.trim().toUpperCase()));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        alert('Kode institusi tidak ditemukan!');
+        setInstitutionId('');
+        return;
+      }
+      const instDoc = snap.docs[0];
+      setInstitutionId(instDoc.id);
+      setInstSearch('');
+      alert(`Institusi ditemukan: ${instDoc.data().name}`);
+    } catch (e: any) {
+      alert('Gagal verifikasi kode: ' + (e.message || 'Unknown'));
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
 
   const submit = async () => {
     setErrorMsg('');
@@ -277,16 +305,84 @@ const PartnerOnboarding = ({ uid, onClose }: { uid?: string; onClose: () => void
 
             <div>
               <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Institusi</label>
-              <select
-                value={institutionId}
-                onChange={(e) => setInstitutionId(e.target.value)}
-                className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all bg-white"
-              >
-                <option value="">-- Pilih Institusi --</option>
-                {institutions.map((inst: any) => (
-                  <option key={inst.id} value={inst.id}>{inst.name} ({inst.type})</option>
-                ))}
-              </select>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Ketik kode institusi..."
+                  value={institutionCodeInput}
+                  onChange={(e) => setInstitutionCodeInput(e.target.value.toUpperCase())}
+                  className="flex-1 p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all uppercase"
+                />
+                <button
+                  type="button"
+                  onClick={verifyInstitutionCode}
+                  disabled={verifyingCode}
+                  className="px-4 py-3 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all"
+                >
+                  {verifyingCode ? <Loader2 className="animate-spin" size={18} /> : 'Cari'}
+                </button>
+              </div>
+              <div className="relative mb-2">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Atau ketik nama institusi untuk mencari..."
+                  value={instSearch}
+                  onChange={(e) => setInstSearch(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                />
+              </div>
+              {instSearch && (
+                <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden max-h-48 overflow-y-auto shadow-lg mb-3">
+                  {institutions
+                    .filter((inst: any) => {
+                      const q = instSearch.toLowerCase();
+                      return (inst.name || '').toLowerCase().includes(q) ||
+                             (inst.code || '').toLowerCase().includes(q);
+                    })
+                    .map((inst: any) => (
+                      <button
+                        key={inst.id}
+                        type="button"
+                        onClick={() => {
+                          setInstitutionId(inst.id);
+                          setInstitutionCodeInput(inst.code || '');
+                          setInstSearch('');
+                        }}
+                        className={`w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors border-b border-stone-50 last:border-b-0 ${institutionId === inst.id ? 'bg-emerald-50' : ''}`}
+                      >
+                        <p className="text-sm font-bold text-stone-800">{inst.name}</p>
+                        <p className="text-[10px] text-stone-400 font-mono">Kode: {inst.code || '-'}</p>
+                      </button>
+                    ))}
+                  {institutions.filter((inst: any) => {
+                    const q = instSearch.toLowerCase();
+                    return (inst.name || '').toLowerCase().includes(q) ||
+                           (inst.code || '').toLowerCase().includes(q);
+                  }).length === 0 && (
+                    <p className="text-xs text-stone-400 p-4 text-center">Tidak ada institusi yang cocok.</p>
+                  )}
+                </div>
+              )}
+              {institutionId && institutions.find((i: any) => i.id === institutionId) && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center gap-2">
+                  <Building2 size={16} className="text-emerald-600" />
+                  <p className="text-xs font-bold text-emerald-700">
+                    {institutions.find((i: any) => i.id === institutionId)?.name}
+                    <span className="font-mono ml-2">({institutions.find((i: any) => i.id === institutionId)?.code})</span>
+                  </p>
+                </div>
+              )}
+              {!institutionId && instSearch === '' && institutions.length > 0 && (
+                <p className="text-[10px] text-stone-400 mt-1">
+                  Total {institutions.length} institusi terdaftar. Ketik untuk mencari.
+                </p>
+              )}
+              {!institutionId && instSearch === '' && institutions.length === 0 && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  Belum ada institusi terdaftar. Hubungi admin untuk membuat institusi terlebih dahulu.
+                </p>
+              )}
             </div>
 
             <div>

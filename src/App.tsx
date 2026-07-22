@@ -3086,6 +3086,34 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const [showAssignInstModal, setShowAssignInstModal] = useState(false);
+  const [assigningPartnerId, setAssigningPartnerId] = useState('');
+  const [selectedInstId, setSelectedInstId] = useState('');
+
+  const handleAssignPartnerInstitution = async (partnerId: string) => {
+    setAssigningPartnerId(partnerId);
+    setSelectedInstId('');
+    setShowAssignInstModal(true);
+  };
+
+  const confirmAssignInstitution = async () => {
+    if (!assigningPartnerId || !selectedInstId) {
+      alert('Pilih institusi terlebih dahulu!');
+      return;
+    }
+    try {
+      const partnerRef = doc(db, 'partners', assigningPartnerId);
+      await updateDoc(partnerRef, { institutionId: selectedInstId });
+      alert('Institusi partner berhasil diubah!');
+      setShowAssignInstModal(false);
+      setAssigningPartnerId('');
+      setSelectedInstId('');
+    } catch (e: any) {
+      console.error('Gagal assign institution:', e);
+      alert('Gagal mengubah institusi partner.');
+    }
+  };
+
   const handleApproveFlagged = async (txId: string, userToken: string, category: string, weight: number, partnerUid: string) => {
     try {
       // 1. Update status transaksi
@@ -3614,6 +3642,7 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Nama Institusi</th>
                       <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Kode</th>
                       <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Dibuat Oleh</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest text-center">Total Partner</th>
                       <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Tanggal</th>
                       <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest text-right">Aksi</th>
                     </tr>
@@ -3639,6 +3668,11 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                         </td>
                         <td className="px-8 py-6">
                           <p className="text-sm text-stone-700">{inst.createdBy || '-'}</p>
+                        </td>
+                        <td className="px-8 py-6 text-center">
+                          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-black border border-blue-100">
+                            {partners.filter(p => p.institutionId === inst.id).length}
+                          </span>
                         </td>
                         <td className="px-8 py-6">
                           <p className="text-sm text-stone-500">{inst.createdAt ? new Date(inst.createdAt).toLocaleDateString('id-ID') : '-'}</p>
@@ -3707,6 +3741,33 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Password</p>
                             <p className="text-sm font-mono font-semibold text-stone-800 break-all">{p.password || '-'}</p>
                           </div>
+                         {/* Institution Info */}
+                         <div className="bg-white rounded-2xl p-4 border border-stone-100 mb-5">
+                           <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Institusi</p>
+                           {p.institutionId ? (
+                             <div className="flex items-center gap-2">
+                               <Building2 size={14} className="text-blue-600" />
+                               <p className="text-sm font-bold text-stone-800">
+                                 {institutions.find((i: any) => i.id === p.institutionId)?.name || p.institutionId}
+                               </p>
+                               <span className="text-[10px] text-stone-400 font-mono bg-stone-100 px-2 py-0.5 rounded-full">
+                                 {institutions.find((i: any) => i.id === p.institutionId)?.code || '-'}
+                               </span>
+                             </div>
+                           ) : (
+                             <div className="flex items-center gap-2">
+                               <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-200">
+                                 Belum Ada Institusi
+                               </span>
+                               <button
+                                 onClick={() => handleAssignPartnerInstitution(p.id)}
+                                 className="px-3 py-1 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+                               >
+                                 Assign Institusi
+                               </button>
+                             </div>
+                           )}
+                         </div>
                         </div>
 
                         {/* Catatan jika ada */}
@@ -5356,6 +5417,51 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               </div>
             </motion.div>
           </div>
+        )}
+        {showAssignInstModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+            onClick={() => setShowAssignInstModal(false)}
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-display font-black text-stone-900 mb-4">Assign Institusi ke Partner</h3>
+              <div className="space-y-3">
+                <select
+                  value={selectedInstId}
+                  onChange={(e) => setSelectedInstId(e.target.value)}
+                  className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">-- Pilih Institusi --</option>
+                  {institutions.map((inst: any) => (
+                    <option key={inst.id} value={inst.id}>{inst.name} ({inst.code || '-'})</option>
+                  ))}
+                </select>
+                <div className="flex gap-3">
+                  <button
+                    onClick={confirmAssignInstitution}
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+                  >
+                    Simpan
+                  </button>
+                  <button
+                    onClick={() => { setShowAssignInstModal(false); setAssigningPartnerId(''); setSelectedInstId(''); }}
+                    className="flex-1 py-3 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
