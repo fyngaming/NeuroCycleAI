@@ -54,6 +54,7 @@ import {
   Building2,
   Search,
   Users,
+  Copy,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -2187,6 +2188,7 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
   const [showInstList, setShowInstList] = useState(false);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [loadingInst, setLoadingInst] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSetPassword = async () => {
     if (!setPasswordEmail.trim() || !setPasswordValue || !setPasswordConfirm) {
@@ -2519,6 +2521,13 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 >
                   Masuk sebagai Institution Admin
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="w-full py-3 text-stone-500 text-xs font-bold uppercase tracking-widest hover:text-stone-300 transition-colors"
+                >
+                  Lupa Password?
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2615,13 +2624,23 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                         {institutions.length === 0 ? (
                           <p className="text-sm text-stone-500 text-center py-4">Belum ada institusi terdaftar.</p>
                         ) : (
-                          institutions.map((inst: any) => (
-                            <div key={inst.id} className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
-                              <p className="text-sm font-bold text-stone-800">{inst.name || 'Nama tidak tersedia'}</p>
-                              <p className="text-[10px] text-stone-500 uppercase tracking-widest mt-1">Kode: <span className="font-mono font-black text-blue-600 text-sm">{inst.code || '-'}</span></p>
-                              {inst.type && <p className="text-[10px] text-stone-400 mt-1 capitalize">Tipe: {inst.type}</p>}
-                            </div>
-                          ))
+                           institutions.map((inst: any) => (
+                             <div key={inst.id} className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                               <p className="text-sm font-bold text-stone-800">{inst.name || 'Nama tidak tersedia'}</p>
+                               <div className="flex items-center justify-between mt-1">
+                                 <p className="text-[10px] text-stone-500 uppercase tracking-widest">Kode: <span className="font-mono font-black text-blue-600 text-sm">{inst.code || '-'}</span></p>
+                                 <button
+                                   type="button"
+                                   onClick={() => { navigator.clipboard.writeText(inst.code || ''); alert('Kode disalin: ' + (inst.code || '-')); }}
+                                   className="p-1.5 bg-white rounded-lg text-stone-500 hover:text-blue-600 border border-stone-200"
+                                   title="Salin Kode"
+                                 >
+                                   <Copy size={14} />
+                                 </button>
+                               </div>
+                               {inst.type && <p className="text-[10px] text-stone-400 mt-1 capitalize">Tipe: {inst.type}</p>}
+                             </div>
+                           ))
                         )}
                       </div>
                     )}
@@ -2631,6 +2650,46 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
             </AnimatePresence>
           </motion.div>
         )}
+        {/* Forgot Password Modal */}
+        <AnimatePresence>
+          {showForgotPassword && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
+              onClick={() => setShowForgotPassword(false)}
+            >
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-display font-black text-stone-900">Lupa Password?</h3>
+                  <button onClick={() => setShowForgotPassword(false)} className="p-2 hover:bg-stone-100 rounded-xl">
+                    <X size={20} className="text-stone-600" />
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500 mb-4">
+                  Jika Anda lupa password institution admin, silakan hubungi Super Admin untuk mereset password Anda.
+                </p>
+                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 mb-4">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Email Super Admin</p>
+                  <p className="text-sm font-bold text-stone-800">superadmin@neurocycle.id</p>
+                </div>
+                <button
+                  onClick={() => setShowForgotPassword(false)}
+                  className="w-full bg-blue-600 text-white font-bold py-3 rounded-2xl hover:bg-blue-700 transition-all"
+                >
+                  Mengerti
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Partner Self-Submit Modal */}
         <AnimatePresence>
@@ -7159,7 +7218,7 @@ export default function App() {
   const handleInstAdminLogin = async (email: string, password: string) => {
     try {
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email), where('role', '==', 'institution_admin'));
+      const q = query(usersRef, where('email', '==', email));
       const snap = await getDocs(q);
 
       if (snap.empty) {
@@ -7169,6 +7228,11 @@ export default function App() {
 
       const userDoc = snap.docs[0];
       const userData = userDoc.data() as any;
+
+      if (userData.role !== 'institution_admin') {
+        alert('Akun ini bukan institution admin.');
+        return;
+      }
 
       if (userData.password !== password) {
         alert('Password salah!');
@@ -7205,8 +7269,12 @@ export default function App() {
       const existingSnap = await getDocs(existingQuery);
 
       if (!existingSnap.empty) {
-        alert('Email sudah terdaftar!');
-        return false;
+        const existingData = existingSnap.docs[0].data() as any;
+        if (existingData.role === 'institution_admin') {
+          alert('Email ini sudah terdaftar sebagai institution admin!');
+          return false;
+        }
+        // If existing user has different role, allow registration (will overwrite)
       }
 
       const newUserRef = doc(collection(db, 'users'));
