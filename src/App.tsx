@@ -52,6 +52,8 @@ import {
   Bug,
   Filter,
   Building2,
+  Search,
+  Users,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -2714,11 +2716,14 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
 };
 
 const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'claims' | 'activity' | 'partner_activity' | 'missions' | 'articles' | 'mission_activity' | 'partners' | 'flagged_txs' | 'rewards' | 'error_logs'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'claims' | 'activity' | 'partner_activity' | 'missions' | 'articles' | 'mission_activity' | 'partners' | 'flagged_txs' | 'rewards' | 'error_logs' | 'institutions'>('users');
   const [users, setUsers] = useState<UserData[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2835,6 +2840,13 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'adminReviews'), (snap) => {
       setReviews(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'institutions'), (snap) => {
+      setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
@@ -3374,6 +3386,7 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-10 bg-stone-200/50 p-1.5 rounded-3xl w-fit flex-wrap">
           {[
+            { id: 'institutions', label: 'Institusi', icon: Building2 },
             { id: 'users', label: 'Daftar User', icon: User },
             { id: 'partners', label: 'Verifikasi Partner', icon: Recycle },
             { id: 'flagged_txs', label: 'Transaksi Flagged', icon: AlertTriangle },
@@ -3395,6 +3408,11 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             >
               <tab.icon size={18} />
               {tab.label}
+              {tab.id === 'institutions' && (
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-[10px] font-black uppercase tracking-widest">
+                  {institutions.length}
+                </span>
+              )}
               {tab.id === 'partners' && partners.filter(p => p.status === 'pending').length > 0 && (
                 <span className="w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] animate-pulse">
                   {partners.filter(p => p.status === 'pending').length}
@@ -3461,10 +3479,35 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <p className="text-sm text-stone-400">Tidak ada dokumen di koleksi <span className="font-mono">users</span>. Pastikan user telah login dan data tersimpan ke Firestore.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left">
+                  <>
+                    <div className="p-6 flex flex-col sm:flex-row gap-4 border-b border-stone-100">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                        <input
+                          type="text"
+                          placeholder="Cari nama, email, atau institution..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 placeholder:text-stone-400"
+                        />
+                      </div>
+                      <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900"
+                      >
+                        <option value="all">Semua Role</option>
+                        <option value="user">User</option>
+                        <option value="partner">Partner</option>
+                        <option value="institution_admin">Institution Admin</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <table className="w-full text-left">
                     <thead className="bg-stone-50/80 border-b border-stone-100">
                       <tr>
                         <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Identitas Pengguna</th>
+                        <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Institusi</th>
                         <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest text-center">Aktivitas</th>
                         <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Saldo Poin</th>
                         <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Status</th>
@@ -3472,20 +3515,39 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-50">
-                      {users.map(u => (
-                        <tr key={u.uid} className="hover:bg-stone-50/50 transition-colors group">
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-stone-100 rounded-2xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all">
-                                <User size={24} />
+                      {users.filter(u => {
+                        const matchesSearch = !searchQuery || 
+                          (u.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (u.institutionId || '').toLowerCase().includes(searchQuery.toLowerCase());
+                        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+                        return matchesSearch && matchesRole;
+                      }).map(u => {
+                        const inst = institutions.find(i => i.id === u.institutionId);
+                        return (
+                          <tr key={u.uid} className="hover:bg-stone-50/50 transition-colors group">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-stone-100 rounded-2xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all">
+                                  <User size={24} />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-stone-900 leading-tight">{u.displayName || 'Tanpa Nama'}</p>
+                                  <p className="text-xs text-stone-400 font-medium">{u.email}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-bold text-stone-900 leading-tight">{u.displayName || 'Tanpa Nama'}</p>
-                                <p className="text-xs text-stone-400 font-medium">{u.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 text-center">
+                            </td>
+                            <td className="px-8 py-6">
+                              {inst ? (
+                                <div>
+                                  <p className="text-sm font-bold text-stone-800">{inst.name}</p>
+                                  <p className="text-[9px] text-stone-400 font-mono">{u.institutionId}</p>
+                                </div>
+                              ) : (
+                                <span className="px-3 py-1 bg-stone-100 text-stone-400 rounded-full text-[10px] font-black uppercase tracking-widest">Belum Ditentukan</span>
+                              )}
+                            </td>
+                            <td className="px-8 py-6 text-center">
                             <span className="text-xs font-black text-stone-800">{(u.scanHistory?.length || 0) + (u.depositHistory?.length || 0)}</span>
                             <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">Total Aksi</p>
                           </td>
@@ -3517,17 +3579,90 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                                   }
                                 }}
                               className={`p-3 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white'}`}
-                            >
+                              >
                               <Ban size={18} />
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
-                )}
-              </motion.div>
+                </>
+              )}
+            </motion.div>
+          )}
+
+        {activeTab === 'institutions' && (
+          <motion.div
+            key="institutions"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="bg-white rounded-[48px] border border-stone-100 shadow-xl overflow-hidden"
+          >
+            {institutions.length === 0 ? (
+              <div className="p-16 text-center text-stone-500">
+                <p className="text-xl font-bold mb-2">Belum ada institusi</p>
+                <p className="text-sm text-stone-400">Belum ada dokumen di koleksi <span className="font-mono">institutions</span>.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-stone-50/80 border-b border-stone-100">
+                    <tr>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Nama Institusi</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Kode</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Dibuat Oleh</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">Tanggal</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-stone-400 uppercase tracking-widest text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {institutions.map(inst => (
+                      <tr key={inst.id} className="hover:bg-stone-50/50 transition-colors group">
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                              <Building2 size={24} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-stone-900 leading-tight">{inst.name || 'Tanpa Nama'}</p>
+                              <p className="text-xs text-stone-400 font-medium">ID: {inst.id}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="px-4 py-1.5 bg-amber-100 text-amber-700 rounded-full text-xs font-black tracking-widest border border-amber-200">
+                            {inst.code || '-'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm text-stone-700">{inst.createdBy || '-'}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm text-stone-500">{inst.createdAt ? new Date(inst.createdAt).toLocaleDateString('id-ID') : '-'}</p>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button
+                            onClick={() => {
+                              const userList = users.filter(u => u.institutionId === inst.id);
+                              alert(`Total user di institusi ini: ${userList.length}\n\n` + userList.map(u => `• ${u.displayName || u.email}`).join('\n') || 'Tidak ada user.');
+                            }}
+                            className="p-3 bg-stone-100 text-stone-600 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                            title="Lihat User"
+                          >
+                            <Users size={18} />
+                          </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+          </motion.div>
+        )}
 
         {activeTab === 'partners' && (
               <motion.div
@@ -3724,12 +3859,12 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                                 }}
                                 className="px-4 py-2 bg-red-100 text-red-600 rounded-xl text-xs font-bold hover:bg-red-200 transition-all shadow-sm"
                               >
-                                Reject
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     </tbody>
                   </table>
                 )}
