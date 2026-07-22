@@ -2763,6 +2763,10 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [errorLogs, setErrorLogs] = useState<any[]>([]);
   const [errorLogFilter, setErrorLogFilter] = useState<'all' | 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO'>('all');
   const [errorLogStatus, setErrorLogStatus] = useState<'all' | 'unresolved' | 'acknowledged' | 'fixed'>('all');
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<{ uid: string; name: string; email: string; role: string } | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
 
   useEffect(() => {
     import('./services/missionService').then(({ getMissions }) => {
@@ -2983,6 +2987,37 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         metadata: { userUid, actionType: type, itemId }
       });
       alert("Gagal melakukan aksi.");
+    }
+  };
+
+  const handleOpenResetPassword = (u: any) => {
+    setResetPasswordTarget({ uid: u.uid, name: u.displayName || u.email || 'User', email: u.email || '', role: u.role || '' });
+    setNewPasswordInput('');
+    setConfirmNewPasswordInput('');
+    setShowResetPasswordModal(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordTarget) return;
+    if (!newPasswordInput || newPasswordInput.length < 6) {
+      alert('Password minimal 6 karakter!');
+      return;
+    }
+    if (newPasswordInput !== confirmNewPasswordInput) {
+      alert('Password dan konfirmasi tidak cocok!');
+      return;
+    }
+    try {
+      const userRef = doc(db, 'users', resetPasswordTarget.uid);
+      await updateDoc(userRef, { password: newPasswordInput });
+      alert(`Password untuk ${resetPasswordTarget.name} berhasil direset!`);
+      setShowResetPasswordModal(false);
+      setResetPasswordTarget(null);
+      setNewPasswordInput('');
+      setConfirmNewPasswordInput('');
+    } catch (e) {
+      console.error('Gagal reset password:', e);
+      alert('Gagal mereset password.');
     }
   };
 
@@ -3607,9 +3642,18 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                                   }
                                 }}
                               className={`p-3 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white'}`}
-                              >
+                            >
                               <Ban size={18} />
                             </button>
+                            {(u.role === 'institution_admin') && (
+                              <button
+                                onClick={() => handleOpenResetPassword(u)}
+                                className="p-3 rounded-xl bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                title="Reset Password"
+                              >
+                                <Eye size={18} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -5464,6 +5508,44 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </motion.div>
         )}
       </AnimatePresence>
+      {showResetPasswordModal && resetPasswordTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg font-display font-black text-stone-900 mb-1">Reset Password</h3>
+            <p className="text-xs text-stone-500 mb-4">Atur password baru untuk <span className="font-bold text-stone-800">{resetPasswordTarget.name}</span></p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Password Baru"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-stone-900"
+              />
+              <input
+                type="text"
+                placeholder="Konfirmasi Password Baru"
+                value={confirmNewPasswordInput}
+                onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
+                className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-stone-900"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleResetPassword}
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all"
+                >
+                  Simpan Password Baru
+                </button>
+                <button
+                  onClick={() => { setShowResetPasswordModal(false); setResetPasswordTarget(null); setNewPasswordInput(''); setConfirmNewPasswordInput(''); }}
+                  className="flex-1 py-3 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

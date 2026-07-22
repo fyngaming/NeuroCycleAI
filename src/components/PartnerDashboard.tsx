@@ -541,6 +541,16 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
                              partner.status === 'rejected' ? '❌ Ditolak' : 
                              '⏳ Menunggu'}
                   </span>
+                  {partner.institutionId && (
+                    <span className="text-[10px] text-stone-400 font-medium bg-white px-3 py-1.5 rounded-full border border-stone-200">
+                      🏢 Institusi
+                    </span>
+                  )}
+                  {!partner.institutionId && partner.status === 'approved' && (
+                    <span className="text-[10px] text-red-500 font-black uppercase tracking-widest bg-red-50 px-3 py-1.5 rounded-full border border-red-100">
+                      ⚠️ Belum Terasosiasi Institusi
+                    </span>
+                  )}
                   <span className="text-[10px] text-stone-400 font-medium">{partner.email}</span>
                 </div>
               </div>
