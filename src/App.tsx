@@ -163,6 +163,7 @@ interface UserData {
   displayName: string;
   role?: string;
   institutionId?: string;
+  institutionCode?: string;
   qrToken?: string;
   points: number;
   scans: number;
@@ -501,9 +502,9 @@ const EducationList = ({ onBack, onSelectArticle }: {
               <ChevronRight size={18} className="text-stone-300" />
             </motion.div>
           ))}
-        </div>
-      )}
-    </motion.div>
+              </div>
+            )}
+          </motion.div>
   );
 };
 
@@ -2185,9 +2186,6 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
   const [setPasswordEmail, setSetPasswordEmail] = useState('');
   const [setPasswordValue, setSetPasswordValue] = useState('');
   const [setPasswordConfirm, setSetPasswordConfirm] = useState('');
-  const [showInstList, setShowInstList] = useState(false);
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [loadingInst, setLoadingInst] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSetPassword = async () => {
@@ -2239,16 +2237,6 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
       alert('Gagal mengatur password.');
     }
   };
-
-  useEffect(() => {
-    if (!showInstList) return;
-    setLoadingInst(true);
-    const unsub = onSnapshot(collection(db, 'institutions'), (snap) => {
-      setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoadingInst(false);
-    });
-    return () => unsub();
-  }, [showInstList]);
 
   const tabs = [
     { id: 'user', label: 'User', color: 'emerald' },
@@ -2556,22 +2544,14 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 </div>
                 <input
                   type="text"
-                  placeholder="Kode Institusi"
+                  placeholder="Kode Institusi (dapat dari notifikasi)"
                   value={instCode}
                   onChange={(e) => setInstCode(e.target.value.toUpperCase())}
                   className="w-full bg-stone-800/50 text-white px-5 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-stone-700 font-mono uppercase tracking-widest text-center"
                 />
                 <p className="text-[10px] text-stone-500 text-center">
-                  Daftar sebagai admin institusi dengan kode yang diberikan Super Admin
+                  Kode akan dikirim melalui notifikasi setelah Super Admin membuat institusi untuk Anda
                 </p>
-
-                <button
-                  onClick={() => setShowInstList(true)}
-                  className="w-full py-3 text-blue-400 text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Building2 size={14} />
-                  Lihat Daftar Institusi & Kode
-                </button>
 
                 <button
                   onClick={async () => {
@@ -2589,68 +2569,10 @@ const LoginScreen = ({ onGoogleLogin, onAdminLogin, onSuperAdminLogin, onInstAdm
                 </button>
               </div>
             )}
-
-            <AnimatePresence>
-              {showInstList && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-70 flex items-center justify-center p-6"
-                  onClick={() => setShowInstList(false)}
-                >
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 20, opacity: 0 }}
-                    className="bg-white rounded-[32px] p-6 w-full max-w-sm max-h-[80vh] overflow-hidden shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-display font-black text-stone-900">Daftar Institusi</h3>
-                      <button onClick={() => setShowInstList(false)} className="p-2 hover:bg-stone-100 rounded-xl">
-                        <X size={20} className="text-stone-600" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-stone-500 mb-4">
-                      Berikut adalah daftar institusi yang terdaftar. Gunakan kode institusi untuk mendaftar sebagai admin.
-                    </p>
-                    {loadingInst ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="animate-spin text-blue-600" size={32} />
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                        {institutions.length === 0 ? (
-                          <p className="text-sm text-stone-500 text-center py-4">Belum ada institusi terdaftar.</p>
-                        ) : (
-                           institutions.map((inst: any) => (
-                             <div key={inst.id} className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
-                               <p className="text-sm font-bold text-stone-800">{inst.name || 'Nama tidak tersedia'}</p>
-                               <div className="flex items-center justify-between mt-1">
-                                 <p className="text-[10px] text-stone-500 uppercase tracking-widest">Kode: <span className="font-mono font-black text-blue-600 text-sm">{inst.code || '-'}</span></p>
-                                 <button
-                                   type="button"
-                                   onClick={() => { navigator.clipboard.writeText(inst.code || ''); alert('Kode disalin: ' + (inst.code || '-')); }}
-                                   className="p-1.5 bg-white rounded-lg text-stone-500 hover:text-blue-600 border border-stone-200"
-                                   title="Salin Kode"
-                                 >
-                                   <Copy size={14} />
-                                 </button>
-                               </div>
-                               {inst.type && <p className="text-[10px] text-stone-400 mt-1 capitalize">Tipe: {inst.type}</p>}
-                             </div>
-                           ))
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
-        {/* Forgot Password Modal */}
+
+            {/* Forgot Password Modal */}
         <AnimatePresence>
           {showForgotPassword && (
             <motion.div
@@ -5957,6 +5879,33 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     pendingPartners: partners.filter((p: any) => p.status === 'pending').length,
   }), [partners, users, errorLogs, institutions]);
 
+  const sendInstitutionCodeNotification = async (userUid: string, userName: string, institutionName: string, institutionCode: string) => {
+    try {
+      const userRef = doc(db, 'users', userUid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) return;
+
+      const userData = userSnap.data() as any;
+      const newNotification: NotificationItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: 'Kode Institusi Diberikan',
+        message: `Anda telah ditunjuk sebagai admin institusi "${institutionName}". Kode institusi Anda adalah: ${institutionCode}. Gunakan kode ini untuk mendaftar sebagai Institution Admin.`,
+        date: new Date().toLocaleString('id-ID'),
+        type: 'info',
+        isRead: false
+      };
+
+      const updatedNotifications = [newNotification, ...(userData.notifications || [])];
+      await updateDoc(userRef, {
+        notifications: updatedNotifications,
+        institutionId: userData.institutionId || '',
+        institutionCode: institutionCode
+      });
+    } catch (e) {
+      console.error('Gagal mengirim notifikasi kode institusi:', e);
+    }
+  };
+
   const handleCreateInstitution = async () => {
     try {
       const code = institutionForm.code || generateInstitutionCode();
@@ -5966,6 +5915,16 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         code: code.toUpperCase(),
         createdAt: new Date().toISOString(),
       });
+
+      if (institutionForm.adminUid) {
+        const userRef = doc(db, 'users', institutionForm.adminUid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as any;
+          await sendInstitutionCodeNotification(institutionForm.adminUid, userData.displayName || userData.email, institutionForm.name, code.toUpperCase());
+        }
+      }
+
       setShowInstitutionForm(false);
       setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', code: '', status: 'active' });
     } catch (e) {
@@ -5977,8 +5936,19 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const handleUpdateInstitution = async () => {
     if (!editingInstitution) return;
     try {
+      const newCode = (institutionForm.code || editingInstitution.code || '').toUpperCase();
       const instRef = doc(db, 'institutions', editingInstitution.id);
-      await updateDoc(instRef, { ...institutionForm, code: (institutionForm.code || editingInstitution.code || '').toUpperCase() });
+      await updateDoc(instRef, { ...institutionForm, code: newCode });
+
+      if (editingInstitution.adminUid && institutionForm.code) {
+        const userRef = doc(db, 'users', editingInstitution.adminUid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as any;
+          await sendInstitutionCodeNotification(editingInstitution.adminUid, userData.displayName || userData.email, editingInstitution.name || institutionForm.name, newCode);
+        }
+      }
+
       setEditingInstitution(null);
       setShowInstitutionForm(false);
       setInstitutionForm({ name: '', type: 'school', email: '', phone: '', address: '', adminUid: '', code: '', status: 'active' });
@@ -7000,6 +6970,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 export default function App() {
 
   const [state, setState] = useState<AppState>('login');
+  const stateRef = useRef<AppState>('login');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<WasteAnalysis | null>(null);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
@@ -7045,6 +7016,10 @@ export default function App() {
   const [prevState, setPrevState] = useState<AppState | null>(null);
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const notificationsBootstrappedRef = useRef(false);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     const updatedNotifications = userData.notifications.map(n =>
@@ -7357,6 +7332,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
     const institutionCheckedRef = { current: false };
+    const isInitialMount = { current: true };
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -7366,7 +7342,6 @@ export default function App() {
           unsubscribeSnapshot();
           unsubscribeSnapshot = null;
         }
-        institutionCheckedRef.current = false;
         const userRef = doc(db, 'users', currentUser.uid);
 
         unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
@@ -7411,28 +7386,34 @@ export default function App() {
               setDoc(userRefStreak, { streak: newStreak, lastLogin: todayStr }, { merge: true });
             }
 
-            const isReturningUser = !!(updatedData.scanHistory?.length || updatedData.depositHistory?.length || updatedData.claimHistory?.length || updatedData.points > 0 || updatedData.streak > 1);
+            if (isInitialMount.current && stateRef.current === 'login') {
+              const isReturningUser = !!(updatedData.scanHistory?.length || updatedData.depositHistory?.length || updatedData.claimHistory?.length || updatedData.points > 0 || updatedData.streak > 1);
 
-            if (!updatedData.institutionId && !isReturningUser && !institutionCheckedRef.current) {
-              institutionCheckedRef.current = true;
-              setState('institution_setup');
-            } else {
-              setState('welcome');
+              if (!updatedData.institutionId && !isReturningUser && !institutionCheckedRef.current) {
+                institutionCheckedRef.current = true;
+                setState('institution_setup');
+              } else {
+                setState('welcome');
+              }
+              isInitialMount.current = false;
             }
           } else {
-            const initialData: UserData = {
-              ...userData,
-              uid: currentUser.uid,
-              email: currentUser.email || '',
-              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-              role: 'user',
-              qrToken: Math.random().toString(36).substr(2, 9),
-              isBanned: false,
-              notifications: []
-            };
-            await setDoc(userRef, initialData);
-            setUserData(initialData);
-            setState('institution_setup');
+            if (isInitialMount.current && stateRef.current === 'login') {
+              const initialData: UserData = {
+                ...userData,
+                uid: currentUser.uid,
+                email: currentUser.email || '',
+                displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                role: 'user',
+                qrToken: Math.random().toString(36).substr(2, 9),
+                isBanned: false,
+                notifications: []
+              };
+              await setDoc(userRef, initialData);
+              setUserData(initialData);
+              setState('institution_setup');
+              isInitialMount.current = false;
+            }
           }
           setIsInitializing(false);
         }, (error) => {
@@ -7445,6 +7426,7 @@ export default function App() {
         unsubscribeSnapshot = null;
         setState('login');
         setIsInitializing(false);
+        isInitialMount.current = true;
       }
     });
 
