@@ -2749,6 +2749,15 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
 
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: users.length };
+    users.forEach(u => {
+      const role = u.role || 'user';
+      counts[role] = (counts[role] || 0) + 1;
+    });
+    return counts;
+  }, [users]);
+
   useEffect(() => {
     import('./services/missionService').then(({ getMissions }) => {
       const unsub = getMissions((m: any[]) => setMissions(m));
@@ -3540,11 +3549,11 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                         onChange={(e) => setRoleFilter(e.target.value)}
                         className="px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900"
                       >
-                        <option value="all">Semua Role</option>
-                        <option value="user">User</option>
-                        <option value="partner">Partner</option>
-                        <option value="institution_admin">Institution Admin</option>
-                        <option value="admin">Admin</option>
+                        <option value="all">Semua Role ({roleCounts.all || 0})</option>
+                        <option value="user">User ({roleCounts.user || 0})</option>
+                        <option value="partner">Partner ({roleCounts.partner || 0})</option>
+                        <option value="institution_admin">Inst. Admin ({roleCounts.institution_admin || 0})</option>
+                        <option value="admin">Admin ({roleCounts.admin || 0})</option>
                       </select>
                     </div>
                     <table className="w-full text-left">
@@ -3564,10 +3573,12 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           (u.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (u.institutionId || '').toLowerCase().includes(searchQuery.toLowerCase());
-                        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+                        const userRole = u.role || 'user';
+                        const matchesRole = roleFilter === 'all' || userRole === roleFilter;
                         return matchesSearch && matchesRole;
                       }).map(u => {
                         const inst = institutions.find(i => i.id === u.institutionId);
+                        const userRole = u.role || 'user';
                         return (
                           <tr key={u.uid} className="hover:bg-stone-50/50 transition-colors group">
                             <td className="px-8 py-6">
@@ -3592,53 +3603,55 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                               )}
                             </td>
                             <td className="px-8 py-6 text-center">
-                            <span className="text-xs font-black text-stone-800">{(u.scanHistory?.length || 0) + (u.depositHistory?.length || 0)}</span>
-                            <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">Total Aksi</p>
-                          </td>
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-2">
-                              <Coins size={14} className="text-amber-500" />
-                              <p className="font-display font-black text-emerald-600 text-lg">{u.points?.toLocaleString() || 0}</p>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6">
-                            {u.isBanned ? (
-                              <span className="px-4 py-1.5 bg-red-100 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-200">Terbanned</span>
-                            ) : (
-                              <span className="px-4 py-1.5 bg-emerald-100 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-200">Aktif</span>
-                            )}
-                          </td>
-                          <td className="px-8 py-6 text-right space-x-2">
-                            <button
-                              onClick={() => setSelectedUser(u)}
-                              className="p-3 bg-stone-100 text-stone-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                              title="Detail"
-                            >
-                              <MoreVertical size={18} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                  if (window.confirm(`Yakin ingin ${u.isBanned ? 'membuka ban' : 'mem-ban'} user ${u.displayName}?`)) {
-                                    handleAction(u.uid!, u.isBanned ? 'unban' : 'ban');
-                                  }
-                                }}
-                              className={`p-3 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white'}`}
-                            >
-                              <Ban size={18} />
-                            </button>
-                            {(u.role === 'institution_admin') && (
-                              <button
-                                onClick={() => handleOpenResetPassword(u)}
-                                className="p-3 rounded-xl bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
-                                title="Reset Password"
-                              >
-                                <Eye size={18} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                              <span className="text-xs font-black text-stone-800">{(u.scanHistory?.length || 0) + (u.depositHistory?.length || 0)}</span>
+                              <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">Total Aksi</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-2">
+                                <Coins size={14} className="text-amber-500" />
+                                <p className="font-display font-black text-emerald-600 text-lg">{u.points?.toLocaleString() || 0}</p>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                              {u.isBanned ? (
+                                <span className="px-4 py-1.5 bg-red-100 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-200">Terbanned</span>
+                              ) : (
+                                <span className="px-4 py-1.5 bg-emerald-100 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-200">Aktif</span>
+                              )}
+                            </td>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setSelectedUser(u)}
+                                  className="p-2.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                  title="Detail"
+                                >
+                                  <MoreVertical size={16} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                      if (window.confirm(`Yakin ingin ${u.isBanned ? 'membuka ban' : 'mem-ban'} user ${u.displayName}?`)) {
+                                        handleAction(u.uid!, u.isBanned ? 'unban' : 'ban');
+                                      }
+                                    }}
+                                  className={`p-2.5 rounded-xl transition-all shadow-sm ${u.isBanned ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white'}`}
+                                >
+                                  <Ban size={16} />
+                                </button>
+                                {(userRole === 'institution_admin') && (
+                                  <button
+                                    onClick={() => handleOpenResetPassword(u)}
+                                    className="p-2.5 rounded-xl bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                    title="Reset Password"
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </>
