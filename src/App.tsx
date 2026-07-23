@@ -6431,49 +6431,64 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [partners, setPartners] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [errorLogs, setErrorLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [institutionId, setInstitutionId] = useState<string>('');
-  const [showAddPartnerForm, setShowAddPartnerForm] = useState(false);
-  const [newPartner, setNewPartner] = useState({ name: '', email: '', phone: '', address: '', notes: '' });
-  const [assigningUser, setAssigningUser] = useState<string | null>(null);
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+   const [errorLogs, setErrorLogs] = useState<any[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [institutionId, setInstitutionId] = useState<string>('');
+   const [institutionNotFound, setInstitutionNotFound] = useState(false);
+   const [showAddPartnerForm, setShowAddPartnerForm] = useState(false);
+   const [newPartner, setNewPartner] = useState({ name: '', email: '', phone: '', address: '', notes: '' });
+   const [assigningUser, setAssigningUser] = useState<string | null>(null);
+   const [selectedPartnerId, setSelectedPartnerId] = useState('');
 
-  useEffect(() => {
-    const fetchInstitution = async () => {
-      try {
-        const userRef = doc(db, 'users', auth.currentUser?.uid || '');
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const userData = userSnap.data() as any;
-          let instId = userData.institutionId || '';
-          
-          if (!instId && userData.institutionCode) {
-            const instQuery = query(collection(db, 'institutions'), where('code', '==', userData.institutionCode.toUpperCase()));
-            const instSnap = await getDocs(instQuery);
-            if (!instSnap.empty) {
-              instId = instSnap.docs[0].id;
-              await updateDoc(userRef, { institutionId: instId });
-            }
-          }
-          
-          setInstitutionId(instId);
-          
-          if (instId) {
-            const instRef = doc(db, 'institutions', instId);
-            const instSnap = await getDoc(instRef);
-            if (instSnap.exists()) {
-              setInstitution({ id: instSnap.id, ...instSnap.data() });
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Gagal memuat data institusi:', e);
-      }
-    };
+   useEffect(() => {
+     const fetchInstitution = async () => {
+       try {
+         setInstitutionNotFound(false);
+         const userRef = doc(db, 'users', auth.currentUser?.uid || '');
+         const userSnap = await getDoc(userRef);
+         if (userSnap.exists()) {
+           const userData = userSnap.data() as any;
+           let instId = userData.institutionId || '';
+           let instName = userData.institutionName || '';
+           
+           if (!instId && userData.institutionCode) {
+             const instQuery = query(collection(db, 'institutions'), where('code', '==', userData.institutionCode.toUpperCase()));
+             const instSnap = await getDocs(instQuery);
+             if (!instSnap.empty) {
+               instId = instSnap.docs[0].id;
+               instName = instSnap.docs[0].data().name || '';
+               await updateDoc(userRef, { institutionId: instId, institutionName: instName });
+             }
+           }
+           
+           if (instId) {
+             const instRef = doc(db, 'institutions', instId);
+             const instSnap = await getDoc(instRef);
+             
+             if (instSnap.exists()) {
+               setInstitutionId(instId);
+               setInstitution({ id: instSnap.id, ...instSnap.data() });
+             } else {
+               setInstitutionId('');
+               setInstitution(null);
+               setInstitutionNotFound(true);
+             }
+           } else {
+             setInstitutionId('');
+             setInstitution(null);
+             setInstitutionNotFound(true);
+           }
+         }
+       } catch (e) {
+         console.error('Gagal memuat data institusi:', e);
+         setInstitutionNotFound(true);
+       } finally {
+         setLoading(false);
+       }
+     };
 
-    fetchInstitution();
-  }, []);
+     fetchInstitution();
+   }, []);
 
   useEffect(() => {
     if (!institutionId) return;
@@ -6614,6 +6629,28 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  if (institutionNotFound) {
+    return (
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-6">
+        <div className="bg-stone-800 border border-red-700 rounded-[40px] p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-red-400">
+            <Ban size={32} />
+          </div>
+          <h2 className="text-xl font-black text-white mb-2">Institusi Tidak Ditemukan</h2>
+          <p className="text-stone-400 text-sm mb-4">
+            Akun Anda belum terhubung dengan institusi yang valid. Hubungi Super Admin untuk mengatur institusi Anda.
+          </p>
+          <button
+            onClick={onLogout}
+            className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     );
   }
