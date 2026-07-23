@@ -7429,6 +7429,7 @@ export default function App() {
         return;
       }
 
+      setInstAdminId(userDoc.id);
       setUserData(userData);
       setState('institution_admin_dashboard');
     } catch (e) {
