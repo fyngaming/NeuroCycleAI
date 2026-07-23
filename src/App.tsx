@@ -2704,7 +2704,6 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2748,15 +2747,6 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [resetPasswordTarget, setResetPasswordTarget] = useState<{ uid: string; name: string; email: string; role: string } | null>(null);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
-
-  const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: users.length };
-    users.forEach(u => {
-      const role = u.role || 'user';
-      counts[role] = (counts[role] || 0) + 1;
-    });
-    return counts;
-  }, [users]);
 
   useEffect(() => {
     import('./services/missionService').then(({ getMissions }) => {
@@ -3528,8 +3518,8 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
               >
                 {users.length === 0 ? (
                   <div className="p-16 text-center text-stone-500">
-                    <p className="text-xl font-bold mb-2">Belum ada data pengguna</p>
-                    <p className="text-sm text-stone-400">Tidak ada dokumen di koleksi <span className="font-mono">users</span>. Pastikan user telah login dan data tersimpan ke Firestore.</p>
+                    <p className="text-xl font-bold mb-2">Belum ada pengguna terdaftar</p>
+                    <p className="text-sm text-stone-400">Tidak ada akun user reguler di koleksi <span className="font-mono">users</span>. Akun partner/institution admin hanya bisa dilihat di dashboard Super Admin.</p>
                   </div>
                 ) : (
                   <>
@@ -3544,17 +3534,6 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           className="w-full pl-12 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 placeholder:text-stone-400"
                         />
                       </div>
-                      <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900"
-                      >
-                        <option value="all">Semua Role ({roleCounts.all || 0})</option>
-                        <option value="user">User ({roleCounts.user || 0})</option>
-                        <option value="partner">Partner ({roleCounts.partner || 0})</option>
-                        <option value="institution_admin">Inst. Admin ({roleCounts.institution_admin || 0})</option>
-                        <option value="admin">Admin ({roleCounts.admin || 0})</option>
-                      </select>
                     </div>
                     <table className="w-full text-left">
                     <thead className="bg-stone-50/80 border-b border-stone-100">
@@ -3573,9 +3552,8 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                           (u.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (u.institutionId || '').toLowerCase().includes(searchQuery.toLowerCase());
-                        const userRole = u.role || 'user';
-                        const matchesRole = roleFilter === 'all' || userRole === roleFilter;
-                        return matchesSearch && matchesRole;
+                        const isRegularUser = !u.role || u.role === 'user';
+                        return matchesSearch && isRegularUser;
                       }).map(u => {
                         const inst = institutions.find(i => i.id === u.institutionId);
                         const userRole = u.role || 'user';
