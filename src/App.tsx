@@ -7013,6 +7013,7 @@ export default function App() {
   const [prevState, setPrevState] = useState<AppState | null>(null);
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const notificationsBootstrappedRef = useRef(false);
+  const authHandledRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -7318,6 +7319,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    authHandledRef.current = false;
     setState('login');
   };
 
@@ -7328,8 +7330,6 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
-    const institutionCheckedRef = { current: false };
-    const isInitialMount = { current: true };
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -7341,11 +7341,13 @@ export default function App() {
         }
         const userRef = doc(db, 'users', currentUser.uid);
 
-        unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
-          setIsInitializing(true);
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserData;
-
+        const snapOnce = await getDoc(userRef);
+        if (snapOnce.exists()) {
+          const data = snapOnce.data() as UserData;
+          
+          if (stateRef.current === 'login' && !authHandledRef.current) {
+            authHandledRef.current = true;
+            
             if (data.isBanned) {
               alert("Akun Anda telah ditangguhkan oleh Admin karena pelanggaran kebijakan.");
               await signOut(auth);
@@ -7383,47 +7385,75 @@ export default function App() {
               setDoc(userRefStreak, { streak: newStreak, lastLogin: todayStr }, { merge: true });
             }
 
-            if (isInitialMount.current && stateRef.current === 'login') {
-              const isReturningUser = !!(updatedData.scanHistory?.length || updatedData.depositHistory?.length || updatedData.claimHistory?.length || updatedData.points > 0 || updatedData.streak > 1);
+            const isReturningUser = !!(updatedData.scanHistory?.length || updatedData.depositHistory?.length || updatedData.claimHistory?.length || updatedData.points > 0 || updatedData.streak > 1);
 
-              if (!updatedData.institutionId && !isReturningUser && !institutionCheckedRef.current) {
-                institutionCheckedRef.current = true;
-                setState('institution_setup');
-              } else {
-                setState('welcome');
-              }
-              isInitialMount.current = false;
-            }
-          } else {
-            if (isInitialMount.current && stateRef.current === 'login') {
-              const initialData: UserData = {
-                ...userData,
-                uid: currentUser.uid,
-                email: currentUser.email || '',
-                displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                role: 'user',
-                qrToken: Math.random().toString(36).substr(2, 9),
-                isBanned: false,
-                notifications: []
-              };
-              await setDoc(userRef, initialData);
-              setUserData(initialData);
+            if (!updatedData.institutionId && !isReturningUser) {
               setState('institution_setup');
-              isInitialMount.current = false;
+            } else {
+              setState('welcome');
             }
+            setIsInitializing(false);
           }
-          setIsInitializing(false);
+        } else {
+          if (stateRef.current === 'login' && !authHandledRef.current) {
+            authHandledRef.current = true;
+            const initialData: UserData = {
+              ...userData,
+              uid: currentUser.uid,
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+              role: 'user',
+              qrToken: Math.random().toString(36).substr(2, 9),
+              isBanned: false,
+              notifications: []
+            };
+            await setDoc(userRef, initialData);
+            setUserData(initialData);
+            setState('institution_setup');
+            setIsInitializing(false);
+          }
+        }
+
+        unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
+          if (!docSnap.exists()) return;
+          
+          const data = docSnap.data() as UserData;
+          let updatedData = { ...data };
+          let hasChanges = false;
+
+          if (!data.qrToken) {
+            updatedData.qrToken = Math.random().toString(36).substr(2, 9);
+            hasChanges = true;
+          }
+
+          if (hasChanges) {
+            setDoc(userRef, updatedData, { merge: true });
+          }
+
+          setUserData({
+            ...updatedData,
+            email: currentUser.email || updatedData.email || '',
+            uid: currentUser.uid,
+            displayName: currentUser.displayName || updatedData.displayName || currentUser.email?.split('@')[0] || 'User',
+            notifications: updatedData.notifications || []
+          });
+
+          const todayStr = new Date().toDateString();
+          const lastLoginStr = updatedData.lastLogin || '';
+          const yesterdayStr = new Date(Date.now() - 86400000).toDateString();
+          if (lastLoginStr !== todayStr) {
+            const newStreak = lastLoginStr === yesterdayStr ? (updatedData.streak || 1) + 1 : 1;
+            const userRefStreak = doc(db, 'users', currentUser.uid);
+            setDoc(userRefStreak, { streak: newStreak, lastLogin: todayStr }, { merge: true });
+          }
         }, (error) => {
           console.error("Firestore snapshot error:", error);
-          alert("Gagal memuat data pengguna (Firestore Error): " + error.message);
-          setIsInitializing(false);
         });
       } else {
         if (unsubscribeSnapshot) unsubscribeSnapshot();
         unsubscribeSnapshot = null;
         setState('login');
         setIsInitializing(false);
-        isInitialMount.current = true;
       }
     });
 
