@@ -5870,7 +5870,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     pendingPartners: partners.filter((p: any) => p.status === 'pending').length,
   }), [partners, users, errorLogs, institutions]);
 
-  const sendInstitutionCodeNotification = async (userUid: string, userName: string, institutionName: string, institutionCode: string) => {
+  const sendInstitutionCodeNotification = async (userUid: string, userName: string, institutionName: string, institutionCode: string, institutionId: string) => {
     try {
       const userRef = doc(db, 'users', userUid);
       const userSnap = await getDoc(userRef);
@@ -5889,7 +5889,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       const updatedNotifications = [newNotification, ...(userData.notifications || [])];
       await updateDoc(userRef, {
         notifications: updatedNotifications,
-        institutionId: userData.institutionId || '',
+        institutionId: institutionId || userData.institutionId || '',
         institutionCode: institutionCode
       });
     } catch (e) {
@@ -5912,7 +5912,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           const userData = userSnap.data() as any;
-          await sendInstitutionCodeNotification(institutionForm.adminUid, userData.displayName || userData.email, institutionForm.name, code.toUpperCase());
+          await sendInstitutionCodeNotification(institutionForm.adminUid, userData.displayName || userData.email, institutionForm.name, code.toUpperCase(), instRef.id);
         }
       }
 
@@ -5936,7 +5936,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           const userData = userSnap.data() as any;
-          await sendInstitutionCodeNotification(editingInstitution.adminUid, userData.displayName || userData.email, editingInstitution.name || institutionForm.name, newCode);
+          await sendInstitutionCodeNotification(editingInstitution.adminUid, userData.displayName || userData.email, editingInstitution.name || institutionForm.name, newCode, editingInstitution.id);
         }
       }
 
@@ -6446,10 +6446,21 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           const userData = userSnap.data() as any;
-          setInstitutionId(userData.institutionId || '');
+          let instId = userData.institutionId || '';
           
-          if (userData.institutionId) {
-            const instRef = doc(db, 'institutions', userData.institutionId);
+          if (!instId && userData.institutionCode) {
+            const instQuery = query(collection(db, 'institutions'), where('code', '==', userData.institutionCode.toUpperCase()));
+            const instSnap = await getDocs(instQuery);
+            if (!instSnap.empty) {
+              instId = instSnap.docs[0].id;
+              await updateDoc(userRef, { institutionId: instId });
+            }
+          }
+          
+          setInstitutionId(instId);
+          
+          if (instId) {
+            const instRef = doc(db, 'institutions', instId);
             const instSnap = await getDoc(instRef);
             if (instSnap.exists()) {
               setInstitution({ id: instSnap.id, ...instSnap.data() });
@@ -6475,14 +6486,9 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    const unsub3 = onSnapshot(query(collection(db, 'transactions')), (snap) => {
+    const unsub3 = onSnapshot(query(collection(db, 'transactions'), where('institutionId', '==', institutionId)), (snap) => {
       const allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const filtered = allTx.filter((tx: any) => {
-        if (!institutionId) return false;
-        const partnerIds = partners.map((p: any) => p.id);
-        return tx.partnerId && partnerIds.includes(tx.partnerId);
-      });
-      setTransactions(filtered);
+      setTransactions(allTx.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     });
 
     const unsub4 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
@@ -6493,7 +6499,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
     setLoading(false);
     return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
-  }, [institutionId, partners]);
+  }, [institutionId]);
 
   const handleApprovePartner = async (partnerId: string) => {
     try {
