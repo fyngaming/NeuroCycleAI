@@ -55,6 +55,7 @@ import {
   Search,
   Users,
   Copy,
+  Lock,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -5816,7 +5817,7 @@ const ReadingTimer = ({
 };
 
 const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'institutions' | 'partners' | 'users' | 'transactions' | 'error_logs'>('institutions');
+  const [activeTab, setActiveTab] = useState<'institutions' | 'partners' | 'users' | 'user_assignments' | 'transactions' | 'error_logs' | 'inst_passwords'>('institutions');
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -5838,6 +5839,8 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [showAssignAdminForm, setShowAssignAdminForm] = useState(false);
   const [assigningInstitution, setAssigningInstitution] = useState<any>(null);
   const [selectedUserEmail, setSelectedUserEmail] = useState('');
+  const [reassigningUser, setReassigningUser] = useState<any>(null);
+  const [reassignInstitutionId, setReassignInstitutionId] = useState('');
 
   useEffect(() => {
     const unsub1 = onSnapshot(collection(db, 'institutions'), (snap) => {
@@ -6015,6 +6018,27 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const handleReassignInstitution = async () => {
+    if (!reassigningUser || !reassignInstitutionId) {
+      alert('Pilih institusi terlebih dahulu!');
+      return;
+    }
+    try {
+      const instDoc = institutions.find(i => i.id === reassignInstitutionId);
+      await updateDoc(doc(db, 'users', reassigningUser.id), {
+        institutionId: reassignInstitutionId,
+        institutionName: instDoc?.name || ''
+      });
+
+      alert('Institusi user berhasil diubah!');
+      setReassigningUser(null);
+      setReassignInstitutionId('');
+    } catch (e) {
+      console.error('Gagal reassign institution:', e);
+      alert('Gagal mengubah institusi user');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-50">
       <div className="bg-stone-900 text-white px-6 py-4 flex items-center justify-between">
@@ -6173,6 +6197,41 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
 
+        {reassigningUser && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md flex items-center justify-center z-50 p-6">
+            <div className="bg-white rounded-[40px] p-8 max-w-lg w-full shadow-2xl">
+              <h3 className="text-xl font-display font-black mb-2">Assign Institusi ke {reassigningUser.displayName || reassigningUser.email}</h3>
+              <p className="text-sm text-stone-500 mb-6">Pilih institusi yang akan terhubung dengan user ini.</p>
+              <div className="space-y-4">
+                <select
+                  value={reassignInstitutionId}
+                  onChange={(e) => setReassignInstitutionId(e.target.value)}
+                  className="w-full bg-stone-50 px-5 py-4 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Pilih Institusi --</option>
+                  {institutions.map((inst: any) => (
+                    <option key={inst.id} value={inst.id}>{inst.name} ({inst.code || '-'})</option>
+                  ))}
+                </select>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleReassignInstitution}
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+                  >
+                    Simpan
+                  </button>
+                  <button
+                    onClick={() => { setReassigningUser(null); setReassignInstitutionId(''); }}
+                    className="px-6 py-4 bg-stone-200 text-stone-700 rounded-2xl font-bold hover:bg-stone-300 transition-all"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'institutions' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100 flex items-center justify-between">
@@ -6254,8 +6313,10 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             { id: 'institutions', label: 'Institutions' },
             { id: 'partners', label: 'Partners' },
             { id: 'users', label: 'Users' },
+            { id: 'user_assignments', label: 'Kelola User' },
             { id: 'transactions', label: 'Transactions' },
             { id: 'error_logs', label: 'Error Logs' },
+            { id: 'inst_passwords', label: '🔐 Password Institusi' },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
               className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap ${activeTab === tab.id ? 'bg-stone-900 text-white' : 'bg-white text-stone-600 border border-stone-200'}`}>
@@ -6420,12 +6481,123 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
             </div>
           </div>
         )}
+
+        {activeTab === 'user_assignments' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Kelola User & Institusi</h3>
+              <p className="text-xs text-stone-500 mt-1">Lihat dan ubah institusi yang terhubung dengan setiap user.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">User</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Institusi Terhubung</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kode Institusi</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {users.map((u: any) => {
+                    const inst = institutions.find(i => i.id === u.institutionId);
+                    const userCode = u.institutionCode || inst?.code || '-';
+                    return (
+                      <tr key={u.id} className="hover:bg-stone-50/50">
+                        <td className="px-6 py-4 text-sm font-bold text-stone-800">{u.displayName || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-800 font-semibold">{inst?.name || u.institutionName || '-'}</td>
+                        <td className="px-6 py-4 text-xs font-mono text-blue-600 font-bold">{userCode}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => { setReassigningUser(u); setReassignInstitutionId(u.institutionId || ''); }}
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
+                          >
+                            Assign Institusi
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'inst_passwords' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100 flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-2xl flex items-center justify-center">
+                <Lock size={18} className="text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-display font-black">Password Admin Institusi</h3>
+                <p className="text-xs text-stone-400">Daftar kredensial login admin institusi untuk pemulihan password</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Institusi</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kode</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email Admin</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Password</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {institutions.map((inst: any) => {
+                    const adminUser = users.find((u: any) => u.role === 'institution_admin' && u.institutionId === inst.id);
+                    return (
+                      <tr key={inst.id} className="hover:bg-stone-50/50">
+                        <td className="px-6 py-4 text-sm font-bold text-stone-800">{inst.name}</td>
+                        <td className="px-6 py-4 text-xs font-mono font-bold text-blue-600">{inst.code || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-600">{adminUser?.email || <span className="text-stone-300 italic">Belum ada admin</span>}</td>
+                        <td className="px-6 py-4">
+                          {adminUser?.password ? (
+                            <div className="flex items-center gap-2">
+                              <code className="bg-stone-100 px-3 py-1.5 rounded-lg text-xs font-mono text-stone-700 border border-stone-200">{adminUser.password}</code>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(adminUser.password); alert('Password berhasil disalin!'); }}
+                                className="p-1.5 bg-stone-100 rounded-lg hover:bg-stone-200 transition-all"
+                                title="Salin password"
+                              >
+                                <Copy size={12} className="text-stone-500" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-stone-300 italic text-xs">Belum ada password</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                            adminUser ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-stone-100 text-stone-400 border-stone-200'
+                          }`}>{adminUser ? 'Terdaftar' : 'Belum Terdaftar'}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {institutions.length === 0 && (
+                <div className="px-6 py-12 text-center text-stone-400 text-sm">
+                  Belum ada institusi terdaftar.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
+const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => void; adminUserId?: string | null }) => {
   const [activeTab, setActiveTab] = useState<'partners' | 'users' | 'transactions' | 'error_logs'>('partners');
   const [institution, setInstitution] = useState<any>(null);
   const [partners, setPartners] = useState<any[]>([]);
@@ -6444,7 +6616,8 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
      const fetchInstitution = async () => {
        try {
          setInstitutionNotFound(false);
-         const userRef = doc(db, 'users', auth.currentUser?.uid || '');
+         const adminUid = adminUserId || auth.currentUser?.uid || '';
+         const userRef = doc(db, 'users', adminUid);
          const userSnap = await getDoc(userRef);
          if (userSnap.exists()) {
            const userData = userSnap.data() as any;
@@ -6552,7 +6725,7 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
         phone: newPartner.phone.trim(),
         address: newPartner.address.trim(),
         notes: newPartner.notes.trim(),
-        ownerUid: auth.currentUser?.uid || '',
+        ownerUid: adminUserId || auth.currentUser?.uid || '',
         institutionId: institutionId,
         status: 'pending',
         createdAt: new Date().toISOString(),
@@ -6644,6 +6817,12 @@ const InstitutionAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           <p className="text-stone-400 text-sm mb-4">
             Akun Anda belum terhubung dengan institusi yang valid. Hubungi Super Admin untuk mengatur institusi Anda.
           </p>
+          <div className="bg-stone-900 p-4 rounded-2xl border border-stone-700 text-left mb-4">
+            <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-2">Debug Info:</p>
+            <p className="text-xs text-stone-400 font-mono break-all">institutionId: {institutionId || '(kosong)'}</p>
+            <p className="text-xs text-stone-400 font-mono break-all">adminUserId: {adminUserId || '(kosong)'}</p>
+            <p className="text-xs text-stone-400 font-mono break-all">authUid: {auth.currentUser?.uid || '(kosong)'}</p>
+          </div>
           <button
             onClick={onLogout}
             className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700"
@@ -7048,6 +7227,7 @@ export default function App() {
   const [showPartnerTx, setShowPartnerTx] = useState(false);
   const [showUserDeposit, setShowUserDeposit] = useState(false);
   const [prevState, setPrevState] = useState<AppState | null>(null);
+  const [instAdminId, setInstAdminId] = useState<string | null>(null);
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const notificationsBootstrappedRef = useRef(false);
   const authHandledRef = useRef(false);
@@ -7236,19 +7416,20 @@ export default function App() {
         return;
       }
 
-      const userDoc = snap.docs[0];
-      const userData = userDoc.data() as any;
-
-      if (userData.role !== 'institution_admin') {
+      const userDoc = snap.docs.find((d) => d.data().role === 'institution_admin');
+      if (!userDoc) {
         alert('Akun ini bukan institution admin.');
         return;
       }
+
+      const userData = userDoc.data() as any;
 
       if (userData.password !== password) {
         alert('Password salah!');
         return;
       }
 
+      setUserData(userData);
       setState('institution_admin_dashboard');
     } catch (e) {
       console.error('Login institution admin failed:', e);
@@ -7284,7 +7465,7 @@ export default function App() {
           alert('Email ini sudah terdaftar sebagai institution admin!');
           return false;
         }
-        // If existing user has different role, allow registration (will overwrite)
+        await deleteDoc(existingSnap.docs[0].ref);
       }
 
       const newUserRef = doc(collection(db, 'users'));
@@ -7308,6 +7489,10 @@ export default function App() {
         claimHistory: [],
         depositHistory: [],
         history: []
+      });
+
+      await updateDoc(doc(db, 'institutions', instDoc.id), {
+        adminUid: newUserRef.id
       });
 
       alert('Pendaftaran institution admin berhasil! Silakan login.');
@@ -7357,6 +7542,7 @@ export default function App() {
 
   const handleLogout = async () => {
     authHandledRef.current = false;
+    setInstAdminId(null);
     setState('login');
   };
 
@@ -7835,6 +8021,7 @@ export default function App() {
         {state === 'institution_admin_dashboard' && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50">
             <InstitutionAdminDashboard
+              adminUserId={instAdminId}
               onLogout={async () => {
                 if (window.confirm("Apakah anda yakin ingin logout dari panel Institution Admin?")) {
                   await handleLogout();
