@@ -6338,6 +6338,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Password</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Institusi</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Owner UID</th>
                   </tr>
                 </thead>
@@ -6355,6 +6356,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
                         }`}>{p.status}</span>
                       </td>
                       <td className="px-6 py-4 text-xs font-mono font-semibold text-stone-700">{p.password || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-600">{institutions.find((i: any) => i.id === p.institutionId)?.name || p.institutionId || '-'}</td>
                       <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{p.ownerUid}</td>
                     </tr>
                   ))}
@@ -6894,36 +6896,29 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
                 <thead className="bg-stone-50">
                   <tr>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Password</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Owner UID</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
-                  {partners.map((p: any) => (
-                    <tr key={p.id} className="hover:bg-stone-50/50">
-                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{p.name}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{p.email}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
-                          p.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                          p.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                          p.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
-                          'bg-stone-100 text-stone-700 border-stone-200'
-                        }`}>{p.status}</span>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-mono font-semibold text-stone-700">{p.password || '-'}</td>
-                      <td className="px-6 py-4 text-right">
-                        {p.status === 'pending' && (
-                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => handleApprovePartner(p.id)} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 hover:bg-emerald-100">Approve</button>
-                            <button onClick={() => handleRejectPartner(p.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100">Reject</button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {partners.map((p: any) => {
+                    return (
+                      <tr key={p.id} className="hover:bg-stone-50/50">
+                        <td className="px-6 py-4 text-sm font-bold text-stone-800">{p.name}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                            p.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            p.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            p.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                            'bg-stone-100 text-stone-700 border-stone-200'
+                          }`}>{p.status}</span>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-mono font-semibold text-stone-700">{p.password || '-'}</td>
+                        <td className="px-6 py-4 text-[10px] font-mono text-stone-400">{p.ownerUid}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -7004,7 +6999,8 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100">
-              <h3 className="text-lg font-display font-black">Daftar Users</h3>
+              <h3 className="text-lg font-display font-black">Users & Nasabah</h3>
+              <p className="text-xs text-stone-500 mt-1">User terdaftar di institusi ini dan nasabah yang pernah setor ke partner-nya.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -7013,39 +7009,53 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Partner</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Total Setoran</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Points</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
-                  {users.map((u: any) => (
-                    <tr key={u.id} className="hover:bg-stone-50/50">
-                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{u.displayName || '-'}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{u.email || '-'}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{u.role || 'user'}</td>
-                      <td className="px-6 py-4 text-xs font-black text-stone-800">{u.points || 0}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setAssigningUser(u.id)}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 hover:bg-blue-100"
-                          >
-                            Assign Partner
-                          </button>
-                          <button
-                            onClick={() => handleEditUserRole(u.id, u.role)}
-                            className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-amber-200 hover:bg-amber-100"
-                          >
-                            Edit Role
-                          </button>
-                          <button
-                            onClick={() => handleRemoveUser(u.id)}
-                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </td>
+                  {(() => {
+                    const partnerMap = new Map(partners.map(p => [p.id, p.name]));
+                    const depositorInfo = new Map();
+                    transactions.forEach((tx: any) => {
+                      const key = tx.userEmail || tx.userToken || tx.userUid || Math.random().toString();
+                      if (!depositorInfo.has(key)) {
+                        depositorInfo.set(key, {
+                          displayName: tx.userToken || '-',
+                          email: tx.userEmail || '-',
+                          role: 'nasabah',
+                          partner: partnerMap.get(tx.partnerId) || tx.partnerName || '-',
+                          totalDeposits: 0,
+                          points: 0,
+                        });
+                      }
+                      const info = depositorInfo.get(key);
+                      info.totalDeposits += 1;
+                      info.points += tx.totalPoints || 0;
+                    });
+                    return users.map((u: any) => ({
+                      id: u.id,
+                      displayName: u.displayName || '-',
+                      email: u.email || '-',
+                      role: u.role || 'user',
+                      partner: u.assignedPartnerName || '-',
+                      totalDeposits: 0,
+                      points: u.points || 0,
+                      isUser: true,
+                    })).concat(Array.from(depositorInfo.values()).map((d, idx) => ({
+                      id: 'dep_' + idx,
+                      ...d,
+                      isUser: false,
+                    })));
+                  })().map((row: any) => (
+                    <tr key={row.id} className={`hover:bg-stone-50/50 ${row.isUser ? '' : 'bg-stone-50/30'}`}>
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{row.displayName}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{row.email}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{row.role || 'user'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-700 font-semibold">{row.partner}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{row.totalDeposits || '-'}</td>
+                      <td className="px-6 py-4 text-xs font-black text-stone-800">{row.points || 0}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -7103,36 +7113,51 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
         {activeTab === 'transactions' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100">
-              <h3 className="text-lg font-display font-black">Riwayat Transaksi</h3>
+              <h3 className="text-lg font-display font-black">Riwayat Transaksi Partner</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-stone-50">
                   <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Partner</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">User</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kategori</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Berat</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Poin</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Tanggal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
-                  {transactions.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-stone-50/50">
-                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{tx.userToken || '-'}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500 capitalize">{tx.category || '-'}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{tx.weight || 0} kg</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
-                          tx.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                          tx.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                          tx.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
-                          'bg-stone-100 text-stone-700 border-stone-200'
-                        }`}>{tx.status}</span>
-                      </td>
-                    </tr>
-                  ))}
+                  {transactions.map((tx: any) => {
+                    const partner = partners.find((p: any) => p.id === tx.partnerId);
+                    return (
+                      <tr key={tx.id} className="hover:bg-stone-50/50">
+                        <td className="px-6 py-4 text-xs font-bold text-stone-800">{partner?.name || tx.partnerName || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-500">{tx.userEmail || tx.userToken || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-500 capitalize">{tx.category || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-stone-500">{tx.totalWeight || tx.weight || 0} kg</td>
+                        <td className="px-6 py-4 text-xs font-black text-emerald-600">{tx.totalPoints || 0}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                            tx.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            tx.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            tx.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                            tx.status === 'flagged_for_review' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                            'bg-stone-100 text-stone-700 border-stone-200'
+                          }`}>{tx.status}</span>
+                        </td>
+                        <td className="px-6 py-4 text-[10px] text-stone-400">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('id-ID') : '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              {transactions.length === 0 && (
+                <div className="px-6 py-12 text-center text-stone-400 text-sm">
+                  Belum ada transaksi dari partner institusi ini.
+                </div>
+              )}
             </div>
           </div>
         )}
