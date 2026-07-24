@@ -6600,7 +6600,7 @@ const SuperAdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 };
 
 const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => void; adminUserId?: string | null }) => {
-  const [activeTab, setActiveTab] = useState<'partners' | 'users' | 'transactions' | 'error_logs'>('partners');
+  const [activeTab, setActiveTab] = useState<'partners' | 'pending_partners' | 'users' | 'transactions' | 'error_logs'>('partners');
   const [institution, setInstitution] = useState<any>(null);
   const [partners, setPartners] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -6788,6 +6788,47 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
     }
   };
 
+  const handleInstitutionApprovePartner = async (partnerId: string) => {
+    try {
+      const partnerRef = doc(db, 'partners', partnerId);
+      await updateDoc(partnerRef, { status: 'approved', approvedAt: new Date().toISOString() });
+      alert('Partner berhasil disetujui!');
+    } catch (e) {
+      console.error('Gagal approve partner:', e);
+      alert('Gagal menyetujui partner');
+    }
+  };
+
+  const handleInstitutionRejectPartner = async (partnerId: string, partnerEmail: string, partnerName: string) => {
+    const reason = prompt('Masukkan alasan penolakan:') || 'Tidak memenuhi kriteria';
+    try {
+      const partnerRef = doc(db, 'partners', partnerId);
+      await updateDoc(partnerRef, { status: 'rejected', rejectionReason: reason });
+
+      const usersQuery = query(collection(db, 'users'), where('email', '==', partnerEmail));
+      const usersSnap = await getDocs(usersQuery);
+      if (!usersSnap.empty) {
+        const userDoc = usersSnap.docs[0];
+        const userData = userDoc.data() as any;
+        const newNotification: NotificationItem = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: 'Pendaftaran Partner Ditolak',
+          message: `Pendaftaran ${partnerName} sebagai partner ditolak oleh admin institusi. Alasan: ${reason}`,
+          date: new Date().toLocaleString('id-ID'),
+          type: 'warning',
+          isRead: false
+        };
+        const updatedNotifications = [newNotification, ...(userData.notifications || [])];
+        await updateDoc(doc(db, 'users', userDoc.id), { notifications: updatedNotifications });
+      }
+
+      alert('Partner berhasil ditolak.');
+    } catch (e) {
+      console.error('Gagal reject partner:', e);
+      alert('Gagal menolak partner');
+    }
+  };
+
   const handleEditUserRole = async (userId: string, currentRole: string) => {
     const newRole = prompt('Masukkan role baru (user / partner / institution_admin):', currentRole);
     if (!newRole || !['user', 'partner', 'institution_admin'].includes(newRole)) {
@@ -6876,6 +6917,7 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {[
             { id: 'partners', label: 'Partners' },
+            { id: 'pending_partners', label: 'Persetujuan Partner' },
             { id: 'users', label: 'Users' },
             { id: 'transactions', label: 'Transactions' },
             { id: 'error_logs', label: 'Error Logs' },
@@ -6886,6 +6928,65 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
             </button>
           ))}
         </div>
+
+        {activeTab === 'pending_partners' && (
+          <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
+            <div className="p-6 border-b border-stone-100">
+              <h3 className="text-lg font-display font-black">Persetujuan Partner Baru</h3>
+              <p className="text-xs text-stone-500 mt-1">Partner yang mendaftar ke institusi ini dan menunggu persetujuan.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Telepon</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Alamat</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {partners.filter((p: any) => p.status === 'pending' && p.institutionId === institutionId).map((p: any) => (
+                    <tr key={p.id} className="hover:bg-stone-50/50">
+                      <td className="px-6 py-4 text-sm font-bold text-stone-800">{p.name}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{p.email}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{p.phone || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500 max-w-xs truncate">{p.address || '-'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          p.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{p.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleInstitutionApprovePartner(p.id)}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 hover:bg-emerald-100"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleInstitutionRejectPartner(p.id, p.email, p.name)}
+                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-200 hover:bg-red-100"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {partners.filter((p: any) => p.status === 'pending' && p.institutionId === institutionId).length === 0 && (
+                <div className="px-6 py-12 text-center text-stone-400 text-sm">
+                  Tidak ada partner yang menunggu persetujuan.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {activeTab === 'partners' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
