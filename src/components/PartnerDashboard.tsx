@@ -142,6 +142,8 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
           const txData: any = {
             partnerUid: uid,
             partnerName: tx.partnerName || partner?.name || 'Bank Sampah Partner',
+            partnerId: partner?.id || null,
+            institutionId: partner?.institutionId || null,
             userUid,
             userToken: tx.userToken,
             category: tx.category || 'campuran',

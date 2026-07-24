@@ -98,7 +98,17 @@ service cloud.firestore {
     match /adminReviews/{reviewId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (isSuperAdmin() || isAdmin() || isPartner());
-      allow update, delete: if isSuperAdmin() || isAdmin();
+      allow update, delete: if isSuperAdmin() || isAdmin() || (
+        isPartner() && 
+        exists(/databases/$(database)/documents/transactions/$(resource.data.txId)) &&
+        get(/databases/$(database)/documents/transactions/$(resource.data.txId)).data.partnerUid == request.auth.uid
+      ) || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/transactions/$(resource.data.txId)) &&
+        get(/databases/$(database)/documents/transactions/$(resource.data.txId)).data.institutionId != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'institution_admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.institutionId == get(/databases/$(database)/documents/transactions/$(resource.data.txId)).data.institutionId
+      );
     }
 
     match /errorLogs/{logId} {
