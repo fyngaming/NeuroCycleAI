@@ -140,7 +140,7 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
           // Save to Firestore
           const txRef = doc(db, 'transactions', tx.id);
           const txData: any = {
-            partnerUid: uid,
+            partnerUid: uid || null,
             partnerName: tx.partnerName || partner?.name || 'Bank Sampah Partner',
             partnerId: partner?.id || null,
             institutionId: partner?.institutionId || null,
@@ -260,15 +260,16 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
 
       // Mark transaction approved
       const txRef = doc(db, 'transactions', tx.id);
-      await updateDoc(txRef, { 
+      const updateData: any = { 
         status: 'approved', 
         approvedAt: new Date().toISOString(), 
-        approvedBy: uid,
         userUid: userUid || tx.userUid || '',
         items: depositItems,
         totalWeight,
         totalPoints,
-      });
+      };
+      if (uid) updateData.approvedBy = uid;
+      await updateDoc(txRef, updateData);
 
       if (tx.status === 'flagged' || tx.status === 'flagged_offline') {
         await setDoc(doc(db, 'adminReviews', tx.id), { status: 'approved', resolvedAt: new Date().toISOString() }, { merge: true });
@@ -331,7 +332,9 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
   const handleReject = async (tx: any) => {
     try {
       const txRef = doc(db, 'transactions', tx.id);
-      await updateDoc(txRef, { status: 'rejected', rejectedAt: new Date().toISOString(), rejectedBy: uid });
+      const updateData: any = { status: 'rejected', rejectedAt: new Date().toISOString() };
+      if (uid) updateData.rejectedBy = uid;
+      await updateDoc(txRef, updateData);
 
       // notify user if available
       const usersRef = collection(db, 'users');
