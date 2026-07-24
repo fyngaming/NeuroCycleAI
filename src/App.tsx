@@ -6726,19 +6726,19 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
      };
    }, [institutionId, partners]);
 
-   useEffect(() => {
-     if (!institutionId) return;
-     const unsub = onSnapshot(
-       query(collection(db, 'users'), where('institutionId', '==', institutionId)),
-       (snap) => {
-         setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-       },
-       (err) => {
-         console.error('Error loading institution users:', err);
-       }
-     );
-     return () => unsub();
-   }, [institutionId]);
+    useEffect(() => {
+      if (!institutionId) return;
+      const unsub = onSnapshot(
+        query(collection(db, 'users'), where('institutionId', '==', institutionId), where('role', '==', 'user')),
+        (snap) => {
+          setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        },
+        (err) => {
+          console.error('Error loading institution users:', err);
+        }
+      );
+      return () => unsub();
+    }, [institutionId]);
 
   const handleApprovePartner = async (partnerId: string) => {
     try {
@@ -7179,6 +7179,7 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
                     const rows: any[] = [];
                     transactions.forEach((tx: any) => {
                       const user = users.find((u: any) => u.uid === tx.userUid || u.qrToken === tx.userToken);
+                      if (!user) return;
                       rows.push({
                         id: tx.id,
                         displayName: user?.displayName || tx.userToken || tx.userEmail || '-',
