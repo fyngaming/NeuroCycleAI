@@ -6720,6 +6720,10 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
       return;
     }
     try {
+      if (!institutionId) {
+        alert('Institusi belum terdeteksi. Hubungi Super Admin untuk mengatur institusi Anda.');
+        return;
+      }
       const partnerRef = doc(collection(db, 'partners'));
       await setDoc(partnerRef, {
         name: newPartner.name.trim(),
@@ -6842,6 +6846,9 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
         <div>
           <h1 className="text-xl font-display font-black">Institution Admin Dashboard</h1>
           <p className="text-stone-400 text-xs">{institution?.name || 'Institusi'}</p>
+          {!institutionId && (
+            <p className="text-red-400 text-[10px] font-black mt-1">Institusi belum terhubung. ID: {institutionId || '(kosong)'}</p>
+          )}
         </div>
         <button onClick={onLogout} className="px-4 py-2 bg-red-600 rounded-xl text-xs font-bold hover:bg-red-700">Logout</button>
       </div>
@@ -6954,34 +6961,34 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
                     placeholder="Nama Partner *"
                     value={newPartner.name}
                     onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-800"
                   />
                   <input
                     type="email"
                     placeholder="Email Partner *"
                     value={newPartner.email}
                     onChange={(e) => setNewPartner({ ...newPartner, email: e.target.value })}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-800"
                   />
                   <input
                     type="text"
                     placeholder="No. Telepon"
                     value={newPartner.phone}
                     onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-800"
                   />
                   <textarea
                     placeholder="Alamat"
                     value={newPartner.address}
                     onChange={(e) => setNewPartner({ ...newPartner, address: e.target.value })}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-800"
                     rows={2}
                   />
                   <textarea
                     placeholder="Catatan"
                     value={newPartner.notes}
                     onChange={(e) => setNewPartner({ ...newPartner, notes: e.target.value })}
-                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-2xl border border-stone-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-800"
                     rows={2}
                   />
                   <button

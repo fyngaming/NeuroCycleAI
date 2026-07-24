@@ -101,52 +101,52 @@ const PartnerSelfSubmit = ({ onClose, onSuccess }: { onClose: () => void, onSucc
         <div className="space-y-4 overflow-y-auto pr-1 flex-1 py-2">
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Nama Bank Sampah / TPA</label>
-            <input 
-              placeholder="Contoh: Bank Sampah Hijau Lestari" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-            />
+             <input 
+               placeholder="Contoh: Bank Sampah Hijau Lestari" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
+               value={name} 
+               onChange={(e) => setName(e.target.value)} 
+             />
           </div>
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Email</label>
-            <input 
-              type="email"
-              placeholder="email@banksampah.com" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-            />
+             <input 
+               type="email"
+               placeholder="email@banksampah.com" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
+               value={email} 
+               onChange={(e) => setEmail(e.target.value)} 
+             />
           </div>
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">No. Telepon</label>
-            <input 
-              placeholder="08123456789" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
-              value={phone} 
-              onChange={(e) => setPhone(e.target.value)} 
-            />
+             <input 
+               placeholder="08123456789" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
+               value={phone} 
+               onChange={(e) => setPhone(e.target.value)} 
+             />
           </div>
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Alamat</label>
-            <textarea 
-              placeholder="Alamat lengkap bank sampah / TPA" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all min-h-20" 
-              value={address} 
-              onChange={(e) => setAddress(e.target.value)} 
-            />
+             <textarea 
+               placeholder="Alamat lengkap bank sampah / TPA" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all min-h-20" 
+               value={address} 
+               onChange={(e) => setAddress(e.target.value)} 
+             />
           </div>
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Institusi</label>
-            <select
-              value={institutionId}
-              onChange={(e) => setInstitutionId(e.target.value)}
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all bg-white"
-            >
+             <select
+               value={institutionId}
+               onChange={(e) => setInstitutionId(e.target.value)}
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all bg-white"
+             >
               <option value="">-- Pilih Institusi --</option>
               {institutions.map((inst: any) => (
                 <option key={inst.id} value={inst.id}>{inst.name} ({inst.type})</option>
@@ -156,23 +156,23 @@ const PartnerSelfSubmit = ({ onClose, onSuccess }: { onClose: () => void, onSucc
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Password Akun</label>
-            <input 
-              type="password"
-              placeholder="Buat password untuk login partner" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
+             <input 
+               type="password"
+               placeholder="Buat password untuk login partner" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all" 
+               value={password} 
+               onChange={(e) => setPassword(e.target.value)} 
+             />
           </div>
 
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Catatan Tambahan (Opsional)</label>
-            <textarea 
-              placeholder="Tambahkan informasi penting lainnya jika ada" 
-              className="w-full p-4 border border-stone-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition-all min-h-20" 
-              value={notes} 
-              onChange={(e) => setNotes(e.target.value)} 
-            />
+             <textarea 
+               placeholder="Tambahkan informasi penting lainnya jika ada" 
+               className="w-full p-4 border border-stone-200 rounded-2xl text-sm text-stone-800 outline-none focus:ring-2 focus:ring-teal-400 transition-all min-h-20" 
+               value={notes} 
+               onChange={(e) => setNotes(e.target.value)} 
+             />
           </div>
         </div>
 
