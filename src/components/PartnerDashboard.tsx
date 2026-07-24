@@ -264,6 +264,7 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
         status: 'approved', 
         approvedAt: new Date().toISOString(), 
         userUid: userUid || tx.userUid || '',
+        partnerId: partner?.id || tx.partnerId || '',
         items: depositItems,
         totalWeight,
         totalPoints,
@@ -700,7 +701,7 @@ const PartnerDashboard = ({ uid, partnerId, onClose }: { uid?: string; partnerId
       {/* Add Transaction Modal */}
       {showAddTx && (
         <PartnerTransactionSubmit
-          partnerUid={uid}
+          partnerUid={partnerId}
           onClose={() => setShowAddTx(false)}
           onDone={() => setShowAddTx(false)}
         />

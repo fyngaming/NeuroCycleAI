@@ -184,12 +184,14 @@ const PartnerTransactionSubmit = ({ partnerUid, onClose, onDone }: { partnerUid?
           photoUrl: photoUrl || existing.photoUrl,
           updatedAt: new Date().toISOString(),
           institutionId: partnerInstitutionId || existing.institutionId || null,
+          partnerId: partnerUid || existing.partnerId || null,
         });
       } else {
         txId = doc(collection(db, 'transactions')).id;
         const txDocRef = doc(db, 'transactions', txId);
         await setDoc(txDocRef, {
           partnerUid: partnerUid || 'unverified',
+          partnerId: partnerUid || null,
           partnerName: partnerName || (isUnapproved ? 'Bank Sampah Belum Terdaftar' : 'Bank Sampah'),
           userUid: resolvedUser.uid, userToken: trimmedToken,
           category: category, weight: finalTotalWeight, items: finalItems,

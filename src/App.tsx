@@ -1853,8 +1853,9 @@ const WasteBankVerify = ({
           
           const txRef = doc(collection(db, 'transactions'));
           await setDoc(txRef, {
-            partnerUid: selectedPartner?.ownerUid || null,
+            partnerUid: selectedPartner?.id || null,
             partnerId: selectedPartnerId,
+            userUid,
             userToken: qrToken,
             status: 'pending',
             createdAt: new Date().toISOString(),
@@ -6665,31 +6666,79 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
      fetchInstitution();
    }, []);
 
-  useEffect(() => {
-    if (!institutionId) return;
+   useEffect(() => {
+     if (!institutionId) return;
 
-    const unsub1 = onSnapshot(query(collection(db, 'partners'), where('institutionId', '==', institutionId)), (snap) => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+     const unsub1 = onSnapshot(query(collection(db, 'partners'), where('institutionId', '==', institutionId)), (snap) => {
+       const partnersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+       setPartners(partnersList);
+     });
 
-    const unsub2 = onSnapshot(query(collection(db, 'users'), where('institutionId', '==', institutionId)), (snap) => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+     const partnerIds = partners.map(p => p.id);
 
-    const unsub3 = onSnapshot(query(collection(db, 'transactions'), where('institutionId', '==', institutionId)), (snap) => {
-      const allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setTransactions(allTx.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    });
+      const unsubTx = onSnapshot(collection(db, 'transactions'), (snap) => {
+         let allTx = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+         allTx = allTx.filter(tx => {
+           const byPartnerId = tx.partnerId && partnerIds.includes(tx.partnerId);
+           const byPartnerUid = tx.partnerUid && partnerIds.includes(tx.partnerUid);
+           return byPartnerId || byPartnerUid;
+         });
+       setTransactions(allTx.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
-    const unsub4 = onSnapshot(collection(db, 'errorLogs'), (snap) => {
-      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      logs.sort((a: any, b: any) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-      setErrorLogs(logs);
-    });
+       const userTxCount = new Map<string, any[]>();
+       allTx.forEach(tx => {
+         const uid = tx.userUid || tx.userToken;
+         if (!uid) return;
+         if (!userTxCount.has(uid)) userTxCount.set(uid, []);
+         userTxCount.get(uid)!.push(tx);
+       });
 
-    setLoading(false);
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
-  }, [institutionId]);
+       const flaggedIds = new Set<string>();
+       userTxCount.forEach((txs, uid) => {
+         const sorted = txs.sort((a, b) => new Date(a.createdAt || Date.now()).getTime() - new Date(b.createdAt || Date.now()).getTime());
+         for (let i = 0; i < sorted.length; i++) {
+           const tx = sorted[i];
+           const reason: string[] = [];
+           if ((tx.totalWeight || tx.weight || 0) > 50) reason.push('Berat melebihi 50kg');
+           const sameDay = sorted.filter(t => {
+             const d1 = new Date(t.createdAt || Date.now());
+             const d2 = new Date(tx.createdAt || Date.now());
+             return d1.toDateString() === d2.toDateString();
+           });
+           if (sameDay.length > 3) reason.push(`Transaksi lebih dari 3x sehari`);
+           if (reason.length > 0) {
+             flaggedIds.add(tx.id);
+             const reviewRef = doc(db, 'adminReviews', tx.id);
+             setDoc(reviewRef, { txId: tx.id, reason: reason.join(', '), status: 'pending', createdAt: tx.createdAt || new Date().toISOString() }, { merge: true }).catch(() => {});
+           }
+         }
+       });
+
+       setTransactions(prev => prev.map(tx => ({
+         ...tx,
+         status: flaggedIds.has(tx.id) ? 'flagged_for_review' : tx.status
+       })));
+     });
+
+     return () => { 
+       unsub1(); 
+       unsubTx(); 
+     };
+   }, [institutionId, partners]);
+
+   useEffect(() => {
+     if (!institutionId) return;
+     const unsub = onSnapshot(
+       query(collection(db, 'users'), where('institutionId', '==', institutionId)),
+       (snap) => {
+         setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+       },
+       (err) => {
+         console.error('Error loading institution users:', err);
+       }
+     );
+     return () => unsub();
+   }, [institutionId]);
 
   const handleApprovePartner = async (partnerId: string) => {
     try {
@@ -7107,67 +7156,78 @@ const InstitutionAdminDashboard = ({ onLogout, adminUserId }: { onLogout: () => 
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-stone-100 overflow-hidden">
             <div className="p-6 border-b border-stone-100">
-              <h3 className="text-lg font-display font-black">Users & Nasabah</h3>
-              <p className="text-xs text-stone-500 mt-1">User terdaftar di institusi ini dan nasabah yang pernah setor ke partner-nya.</p>
+              <h3 className="text-lg font-display font-black">Nasabah &amp; Riwayat Setoran</h3>
+              <p className="text-xs text-stone-500 mt-1">User yang pernah setor sampah ke partner institusi ini, lengkap dengan bukti, jenis sampah, poin, dan berat.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-stone-50">
                   <tr>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Nama</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Role</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Email / Token</th>
                     <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Partner</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Total Setoran</th>
-                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Points</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Kategori</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Berat</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Poin</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Bukti</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-black text-stone-400 uppercase">Tanggal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
                   {(() => {
-                    const partnerMap = new Map(partners.map(p => [p.id, p.name]));
-                    const depositorInfo = new Map();
+                    const rows: any[] = [];
                     transactions.forEach((tx: any) => {
-                      const key = tx.userEmail || tx.userToken || tx.userUid || Math.random().toString();
-                      if (!depositorInfo.has(key)) {
-                        depositorInfo.set(key, {
-                          displayName: tx.userToken || '-',
-                          email: tx.userEmail || '-',
-                          role: 'nasabah',
-                          partner: partnerMap.get(tx.partnerId) || tx.partnerName || '-',
-                          totalDeposits: 0,
-                          points: 0,
-                        });
-                      }
-                      const info = depositorInfo.get(key);
-                      info.totalDeposits += 1;
-                      info.points += tx.totalPoints || 0;
+                      const user = users.find((u: any) => u.uid === tx.userUid || u.qrToken === tx.userToken);
+                      rows.push({
+                        id: tx.id,
+                        displayName: user?.displayName || tx.userToken || tx.userEmail || '-',
+                        email: user?.email || tx.userEmail || '-',
+                        partner: tx.partnerName || '-',
+                        category: tx.category || '-',
+                        weight: tx.totalWeight || tx.weight || 0,
+                        points: tx.totalPoints || 0,
+                        photoUrl: tx.photoUrl || '',
+                        status: tx.status || 'pending',
+                        date: tx.createdAt ? new Date(tx.createdAt).toLocaleString('id-ID') : '-',
+                      });
                     });
-                    return users.map((u: any) => ({
-                      id: u.id,
-                      displayName: u.displayName || '-',
-                      email: u.email || '-',
-                      role: u.role || 'user',
-                      partner: u.assignedPartnerName || '-',
-                      totalDeposits: 0,
-                      points: u.points || 0,
-                      isUser: true,
-                    })).concat(Array.from(depositorInfo.values()).map((d, idx) => ({
-                      id: 'dep_' + idx,
-                      ...d,
-                      isUser: false,
-                    })));
+                    return rows;
                   })().map((row: any) => (
-                    <tr key={row.id} className={`hover:bg-stone-50/50 ${row.isUser ? '' : 'bg-stone-50/30'}`}>
+                    <tr key={row.id} className="hover:bg-stone-50/50">
                       <td className="px-6 py-4 text-sm font-bold text-stone-800">{row.displayName}</td>
                       <td className="px-6 py-4 text-xs text-stone-500">{row.email}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{row.role || 'user'}</td>
                       <td className="px-6 py-4 text-xs text-stone-700 font-semibold">{row.partner}</td>
-                      <td className="px-6 py-4 text-xs text-stone-500">{row.totalDeposits || '-'}</td>
-                      <td className="px-6 py-4 text-xs font-black text-stone-800">{row.points || 0}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500 capitalize">{row.category}</td>
+                      <td className="px-6 py-4 text-xs text-stone-500">{row.weight} kg</td>
+                      <td className="px-6 py-4 text-xs font-black text-emerald-600">{row.points}</td>
+                      <td className="px-6 py-4">
+                        {row.photoUrl ? (
+                          <button // @ts-ignore
+                            onClick={() => setSelectedPhotoPreview({ image: row.photoUrl, user: row.displayName, title: `Bukti Transaksi ${row.id}`, date: row.date })} className="text-blue-600 hover:text-blue-800 font-bold text-xs underline">Lihat</button>
+                        ) : (
+                          <span className="text-stone-400 text-xs italic">Tanpa foto</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                          row.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          row.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          row.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                          row.status === 'flagged_for_review' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                          'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>{row.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-[10px] text-stone-400">{row.date}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {transactions.length === 0 && (
+                <div className="px-6 py-12 text-center text-stone-400 text-sm">
+                  Belum ada transaksi dari partner institusi ini.
+                </div>
+              )}
             </div>
           </div>
         )}

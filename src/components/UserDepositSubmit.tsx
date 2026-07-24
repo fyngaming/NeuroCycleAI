@@ -86,9 +86,11 @@ const UserDepositSubmit = ({ onClose, currentUserQr, userUid, userData }: { onCl
       if (selectedPartnerId) {
         const partnerDoc = partnerList.find(p => p.id === selectedPartnerId);
         const txData: any = {
-          partnerUid: partnerDoc?.ownerUid || null,
+          partnerUid: partnerDoc?.id || null,
           partnerId: selectedPartnerId,
+          userUid: targetUserUid || null,
           userToken: currentUserQr,
+          userEmail: targetUserData?.email || '',
           category,
           weight,
           photoUrl,
@@ -124,8 +126,11 @@ const UserDepositSubmit = ({ onClose, currentUserQr, userUid, userData }: { onCl
         // Manual input -> send to admin for review
         const txData: any = {
           partnerUid: null,
+          partnerId: null,
           partnerNameManual: manualName || 'Belum diisi',
+          userUid: targetUserUid || null,
           userToken: currentUserQr,
+          userEmail: targetUserData?.email || '',
           category,
           weight,
           photoUrl,
